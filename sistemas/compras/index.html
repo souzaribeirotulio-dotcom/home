@@ -7,178 +7,2267 @@
 <link rel="icon" type="image/png" href="../../assets/marca/favicon.png">
 <!--
   ============================================================
-  SR Compras — página provisória com LOGIN REAL
-  O login já funciona: confere usuário, senha e se a pessoa
-  tem o SR Compras liberado em Configurações.
+  SR Compras — sistema de compras da Souza Ribeiro (SR Central)
 
-  Para colocar o sistema de verdade, mantenha os dois <script>
-  do Supabase (sr-config.js e sr-auth.js) e troque o conteúdo
-  da área "app" pelo sistema. Use SRAuth.rest(...) para ler e
-  gravar no banco.
+  Login: usuário e senha da SR Central (assets/sr-auth.js).
+  Só entra quem tem o SR Compras liberado em Configurações.
+
+  Dados: Supabase, tabela compras_registros
+  (supabase/migrations/20261107_02_sr_compras.sql), protegida por
+  RLS com sr_priv.sr_tem_acesso('compras'). Tudo o que é salvo
+  aparece para todos os usuários do SR Compras.
+
+  No navegador ficam só preferências de tela (aba, filtro,
+  listas abertas).
   ============================================================
 -->
 <style>
-  :root { --c: #b2e04a; --bg: #081b06; --cartao: #0c2408; --campo: #102d0a; --linha: rgba(255,255,255,.12); --texto: #f3f8ee; --texto-2: #a9c19a; --texto-3: #6e8b60; }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { height: 100%; }
-  body {
-    font-family: "Poppins", "Inter", "Segoe UI", system-ui, sans-serif; color: var(--texto); font-size: 14px;
-    background:
-      radial-gradient(700px 480px at 85% -10%, color-mix(in srgb, var(--c) 18%, transparent), transparent 60%),
-      radial-gradient(600px 500px at -10% 110%, rgba(43,115,3,.35), transparent 60%),
-      var(--bg);
-    -webkit-font-smoothing: antialiased;
-  }
-  svg.i { width: 26px; height: 26px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-  .tela { min-height: 100%; display: grid; place-items: center; padding: 24px; }
-  .tela[hidden], [hidden] { display: none !important; }
-  .card { width: 100%; max-width: 400px; background: rgba(12,36,8,.85); border: 1px solid var(--linha); border-radius: 20px; padding: 34px 30px 28px; box-shadow: 0 30px 80px rgba(0,0,0,.45); backdrop-filter: blur(8px); animation: sobe .4s cubic-bezier(.2,.8,.2,1); }
-  @keyframes sobe { from { opacity: 0; transform: translateY(10px); } }
-  .topo { display: flex; align-items: center; gap: 14px; }
-  .ic { width: 50px; height: 50px; border-radius: 14px; display: grid; place-items: center; color: var(--c); background: color-mix(in srgb, var(--c) 14%, transparent); border: 1px solid color-mix(in srgb, var(--c) 30%, transparent); flex-shrink: 0; }
-  .sist { font-size: 12px; color: var(--texto-3); }
-  h1 { font-size: 20px; letter-spacing: -.4px; }
-  p.sub { color: var(--texto-2); margin: 22px 0 20px; }
-  label { display: block; font-size: 12px; color: var(--texto-2); margin-bottom: 6px; font-weight: 500; }
-  .campo { margin-bottom: 14px; }
-  input { width: 100%; height: 44px; padding: 0 14px; border-radius: 11px; background: var(--campo); border: 1px solid var(--linha); color: var(--texto); font: inherit; outline: none; transition: border-color .15s, box-shadow .15s; }
-  input:focus { border-color: var(--c); box-shadow: 0 0 0 3px color-mix(in srgb, var(--c) 18%, transparent); }
-  .btn { width: 100%; height: 44px; border: 0; border-radius: 11px; background: var(--c); color: #0b1f06; font: inherit; font-weight: 700; cursor: pointer; margin-top: 6px; transition: filter .15s; display: inline-flex; align-items: center; justify-content: center; }
-  .btn:hover { filter: brightness(1.08); }
-  .btn:disabled { opacity: .6; cursor: default; }
-  .btn.sec { background: rgba(255,255,255,.06); color: var(--texto); border: 1px solid var(--linha); }
-  .dica { margin-top: 16px; color: var(--texto-3); font-size: 12.5px; text-align: center; }
-  .erro { background: rgba(229,72,77,.1); border: 1px solid rgba(229,72,77,.35); color: #ffb4b6; padding: 10px 12px; border-radius: 10px; font-size: 13px; margin-bottom: 14px; }
-  .spin { width: 30px; height: 30px; border: 3px solid rgba(255,255,255,.1); border-top-color: var(--c); border-radius: 50%; animation: gira .8s linear infinite; }
-  .spin.mini { width: 18px; height: 18px; border-width: 2px; border-color: rgba(0,0,0,.2); border-top-color: currentColor; }
-  @keyframes gira { to { transform: rotate(360deg); } }
-  .centro { text-align: center; }
-  .centro .ic { margin: 0 auto 16px; width: 60px; height: 60px; border-radius: 18px; }
-  .centro h2 { font-size: 19px; margin-bottom: 8px; }
-  .centro p { color: var(--texto-2); margin-bottom: 18px; }
-  .centro b { color: var(--texto); }
 
-  /* área do sistema (depois do login) */
-  .app { min-height: 100%; display: flex; flex-direction: column; }
-  .barra { display: flex; align-items: center; gap: 12px; padding: 12px 20px; border-bottom: 1px solid var(--linha); background: rgba(8,27,6,.7); backdrop-filter: blur(8px); }
-  .barra .ic { width: 36px; height: 36px; border-radius: 10px; }
-  .barra .ic svg { width: 19px; height: 19px; }
-  .barra h1 { font-size: 16px; }
-  .quem { margin-left: auto; display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--texto-2); }
-  .quem b { color: var(--texto); font-weight: 600; }
-  .sair { height: 34px; padding: 0 12px; border-radius: 9px; border: 1px solid var(--linha); background: rgba(255,255,255,.04); color: var(--texto); font: inherit; font-size: 13px; cursor: pointer; }
-  .sair:hover { border-color: var(--c); }
-  .conteudo { flex: 1; display: grid; place-items: center; padding: 24px; }
-  .construcao { text-align: center; max-width: 440px; }
-  .construcao .ic { margin: 0 auto 18px; width: 70px; height: 70px; border-radius: 20px; }
-  .construcao .ic svg { width: 34px; height: 34px; }
-  .construcao h2 { font-size: 22px; letter-spacing: -.5px; margin-bottom: 8px; }
-  .construcao p { color: var(--texto-2); }
-  .construcao code { background: var(--campo); padding: 2px 7px; border-radius: 6px; font-size: 12.5px; color: var(--texto); }
-  @media (max-width: 520px) { .quem span { display: none; } }
+:root{
+  color-scheme:dark;
+  --bg:#0A0E13;--sf:#111720;--sf2:#171F29;--bd:#212B37;--bd2:#2E3A48;
+  --tx:#EAF0F5;--tx2:#A8B5C2;--tx3:#7B8998;
+  --gn:#3DD6A0;--gn-bg:rgba(61,214,160,.12);
+  --am:#F5B301;--am-bg:rgba(245,179,1,.14);
+  --rd:#FF7B6E;--rd-bg:rgba(255,123,110,.13);
+  --bl:#78A0FF;--bl-bg:rgba(120,160,255,.14);
+  --tl:#4FD1D9;--tl-bg:rgba(79,209,217,.12);
+  --pu:#B1A1FF;--pu-bg:rgba(177,161,255,.13);
+  --gy:#A8B5C2;--gy-bg:rgba(168,181,194,.12);
+  --ink:#06090D;--ink2:#121821;--ink-tx:#E9EFF4;--ink-mut:#8696A6;--ink-bd:rgba(255,255,255,.08);
+  --r:14px;--rs:9px;
+  --disp:'Bricolage Grotesque','Figtree',system-ui,sans-serif;
+  --body:'Figtree','Segoe UI',system-ui,-apple-system,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:var(--body);background:var(--bg);color:var(--tx);min-height:100vh;font-size:14px;line-height:1.45;}
+button,input{font-family:inherit;}
+:focus-visible{outline:2px solid var(--bl);outline-offset:2px;}
+.layout{display:grid;grid-template-columns:248px 1fr;min-height:100vh;}
+
+/* barra lateral */
+.sidebar{background:var(--ink);color:var(--ink-tx);padding:24px 0;position:sticky;top:0;height:100vh;overflow-y:auto;display:flex;flex-direction:column;}
+.sh{padding:0 20px 20px;border-bottom:1px solid var(--ink-bd);}
+.logo{width:100%;max-width:150px;border-radius:14px;display:block;margin-bottom:12px;}
+.sh-sub{font-family:var(--disp);font-size:15px;font-weight:600;color:var(--ink-tx);letter-spacing:-.01em;}
+.ss{padding:20px 14px 6px;}
+.ssl{font-size:12px;font-weight:600;color:var(--ink-mut);margin:0 8px 8px;}
+.fi{display:flex;align-items:center;justify-content:space-between;padding:9px 10px;border-radius:var(--rs);cursor:pointer;margin-bottom:2px;font-size:14px;color:var(--ink-mut);transition:background .15s,color .15s;}
+.fi:hover{background:var(--ink2);color:var(--ink-tx);}
+.fi.active{background:var(--ink2);color:#fff;box-shadow:inset 3px 0 0 #5B8CFF;}
+.fi-l{display:flex;align-items:center;gap:10px;}
+.fi-dot{width:8px;height:8px;border-radius:50%;box-shadow:0 0 0 3px rgba(255,255,255,.07);}
+.fi-n{font-variant-numeric:tabular-nums;font-size:12px;font-weight:600;color:var(--ink-tx);background:rgba(255,255,255,.08);padding:1px 8px;border-radius:99px;}
+.sbot{margin:auto 16px 0;padding-top:20px;border-top:1px solid var(--ink-bd);display:flex;flex-direction:column;gap:8px;}
+.sdate{font-size:13px;color:var(--ink-mut);padding:2px 8px 8px;}
+.sdate::first-letter{text-transform:uppercase;}
+.upbtn{width:100%;padding:10px;border-radius:var(--rs);border:1px dashed rgba(255,255,255,.25);background:transparent;color:var(--ink-tx);font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;text-align:center;}
+.upbtn:hover{border-color:#fff;background:var(--ink2);}
+.sheets-btn{width:100%;padding:10px;border-radius:var(--rs);border:1px solid rgba(80,220,170,.35);background:rgba(80,220,170,.10);color:#7FE7C2;font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;text-align:center;}
+.sheets-btn:hover{background:rgba(80,220,170,.18);}
+.sheets-status{font-size:12px;padding:6px 10px;border-radius:var(--rs);text-align:center;}
+.sheets-status.ok{background:rgba(80,220,170,.12);color:#7FE7C2;}
+.sheets-status.err{background:rgba(255,120,110,.14);color:#FF9A91;}
+.sheets-status.loading{background:rgba(255,200,80,.14);color:#FFD27A;}
+
+/* conteudo */
+.main{padding:28px 44px 48px;max-width:1280px;min-width:0;}
+.tabs{display:inline-flex;max-width:100%;overflow-x:auto;gap:2px;padding:4px;margin-bottom:28px;background:var(--sf);border:1px solid var(--bd);border-radius:13px;}
+.tab{padding:8px 16px;background:transparent;border:none;border-radius:10px;color:var(--tx2);font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap;transition:background .15s,color .15s;}
+.tab:hover{color:var(--tx);}
+.tab.active{background:var(--bd2);color:#fff;}
+.tab-n{font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--tx3);background:rgba(255,255,255,.08);padding:1px 7px;border-radius:99px;margin-left:8px;}
+.tab.active .tab-n{background:var(--tx);color:#0A0E13;}
+.greet{font-family:var(--disp);font-size:44px;line-height:1.05;font-weight:700;letter-spacing:-.03em;margin-bottom:8px;}
+.greet-sub{font-size:15px;color:var(--tx2);margin-bottom:26px;}
+.stats{display:grid;grid-template-columns:repeat(5,1fr);background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);margin-bottom:22px;box-shadow:0 1px 2px rgba(0,0,0,.4);}
+.stat{padding:18px 22px;border-right:1px solid var(--bd);}
+.stat:last-child{border-right:none;}
+.stat-lb{font-size:13px;color:var(--tx3);font-weight:500;margin-bottom:4px;}
+.stat-vl{font-family:var(--disp);font-size:34px;line-height:1.1;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.02em;}
+.v-r{color:var(--rd);}.v-a{color:var(--am);}.v-g{color:var(--gn);}
+.prog-w{margin-bottom:26px;}
+.prog-i{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;font-size:14px;font-weight:600;color:var(--tx2);}
+.prog-i span:last-child{font-family:var(--disp);font-size:18px;color:var(--tx);font-variant-numeric:tabular-nums;}
+.prog-b{height:10px;background:var(--bd);border-radius:99px;overflow:hidden;}
+.prog-f{height:100%;background:linear-gradient(90deg,#16A37A,#3DD6A0);border-radius:99px;transition:width .5s ease;}
+
+/* cards de fornecedor */
+.card{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);margin-bottom:10px;overflow:hidden;box-shadow:0 1px 2px rgba(0,0,0,.4);transition:border-color .2s,opacity .2s,box-shadow .2s;}
+.card:hover{border-color:var(--bd2);box-shadow:0 6px 18px rgba(0,0,0,.45);}
+.card.done{opacity:.35;}
+.card.at-c{border-left:4px solid var(--tl);}
+.card.ni-c{border-left:4px solid var(--rd);}
+.ch{display:flex;align-items:center;gap:14px;padding:14px 18px;cursor:pointer;user-select:none;}
+.ch:hover{background:var(--sf2);}
+.pn{font-family:var(--disp);font-size:15px;font-weight:700;width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.p-at{background:var(--tl-bg);color:var(--tl);}
+.p-ni{background:var(--rd-bg);color:var(--rd);}
+.p-1{background:#E5493A;color:#fff;}
+.p-2{background:#F5B301;color:#3A2A00;}
+.p-3{background:#3B6BF5;color:#fff;}
+.p-n{background:var(--sf2);color:var(--tx2);box-shadow:inset 0 0 0 1px var(--bd);}
+.ci{flex:1;min-width:0;}
+.cn{font-family:var(--disp);font-size:18px;font-weight:600;letter-spacing:-.01em;margin-bottom:1px;}
+.cm{font-size:13px;color:var(--tx3);font-variant-numeric:tabular-nums;}
+.at-tag{display:inline-flex;font-family:var(--body);font-size:12px;padding:2px 9px;border-radius:99px;background:var(--tl-bg);color:var(--tl);margin-left:10px;font-weight:600;vertical-align:middle;letter-spacing:0;}
+.cbdg{display:flex;gap:5px;flex-shrink:0;}
+.chv{color:var(--tx3);font-size:12px;transition:transform .2s;flex-shrink:0;}
+.chv.open{transform:rotate(90deg);}
+.cb2{border-top:1px solid var(--bd);display:none;overflow-x:auto;}
+.cb2.open{display:block;}
+
+/* tabelas */
+.pt{width:100%;border-collapse:collapse;}
+.pt th{text-align:left;padding:10px 18px;font-size:12px;font-weight:600;color:var(--tx3);background:var(--sf2);border-bottom:1px solid var(--bd);white-space:nowrap;}
+.pt th.r,.pt td.r{text-align:right;}
+.pt td{padding:10px 18px;border-bottom:1px solid var(--bd);font-size:14px;color:var(--tx2);vertical-align:middle;}
+.pt tr:last-child td{border-bottom:none;}
+.pt tr:hover td{background:rgba(255,255,255,.03);}
+.td-n{color:var(--tx);font-weight:500;min-width:220px;}
+.zt{display:inline-block;background:var(--rd-bg);color:var(--rd);font-size:11px;font-weight:600;padding:1px 7px;border-radius:99px;margin-left:8px;}
+.mo{font-variant-numeric:tabular-nums;font-size:14px;white-space:nowrap;}
+.mi{font-size:11px;color:var(--tx3);}
+.jc-tag{display:inline-block;background:var(--gn-bg);color:var(--gn);font-size:12px;font-weight:600;padding:1px 8px;border-radius:99px;}
+.pt strong{color:var(--tx);}
+.jr-s{border-top:1px solid var(--bd);}
+.jr-sh{display:flex;align-items:center;justify-content:space-between;padding:8px 18px;background:var(--sf2);border-bottom:1px solid var(--bd);}
+.jr-st{font-family:var(--disp);font-size:14px;font-weight:600;color:var(--tx);}
+.cbr{display:flex;align-items:center;gap:12px;padding:10px 18px;border-bottom:1px solid var(--bd);font-size:14px;cursor:pointer;}
+.cbr:hover{background:rgba(255,255,255,.03);}
+.cbr:last-child{border-bottom:none;}
+.cbr input[type=checkbox]{width:16px;height:16px;cursor:pointer;accent-color:var(--bl);flex-shrink:0;}
+.cb-nm{flex:1;color:var(--tx);font-weight:500;}
+.cb-qt{font-variant-numeric:tabular-nums;font-size:14px;font-weight:600;color:var(--tx);white-space:nowrap;}
+
+/* rodape do card */
+.cs{display:flex;gap:8px;padding:12px 18px;background:var(--sf2);border-top:1px solid var(--bd);flex-wrap:wrap;align-items:center;}
+.sb{display:flex;align-items:center;gap:8px;padding:7px 14px;border-radius:99px;border:1px solid var(--bd2);background:var(--sf);color:var(--tx2);font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;}
+.sb:hover{border-color:var(--tx3);color:var(--tx);}
+.sd{width:8px;height:8px;border-radius:50%;background:var(--bd2);flex-shrink:0;transition:background .15s;}
+.sb.on-an{background:#E9EFF4;color:#0A0E13;border-color:#E9EFF4;}
+.sb.on-an .sd{background:#0F8A5F;}
+.cpbtn{display:flex;align-items:center;gap:6px;padding:7px 14px;border-radius:99px;border:1px solid var(--bd2);background:var(--sf);color:var(--tx);font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;margin-left:auto;}
+.cpbtn:hover{background:var(--tx);border-color:var(--tx);color:#0A0E13;}
+.cpbtn.copied{color:var(--gn);border-color:var(--gn);background:var(--gn-bg);}
+.cpsel{display:flex;align-items:center;gap:6px;padding:7px 14px;border-radius:99px;border:none;background:#3B6BF5;color:#fff;font-size:13px;font-weight:600;cursor:pointer;margin-left:auto;}
+.cpsel:hover{filter:brightness(1.1);}
+.cpsel.copied{opacity:.65;}
+
+/* marcacoes por produto */
+.exg{display:inline-flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;}
+.exbtn{padding:4px 11px;border-radius:99px;border:1px solid var(--bd2);background:var(--sf);color:var(--tx2);font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap;transition:all .15s;}
+.exbtn:hover{color:var(--tx);border-color:var(--tx3);background:var(--sf2);}
+.exbtn.ex-buy{color:var(--gn);border-color:rgba(61,214,160,.4);background:var(--gn-bg);font-weight:600;}
+.exbtn.ex-buy:hover{background:var(--gn);color:#04251A;border-color:var(--gn);}
+.ex-tag{display:inline-block;background:var(--pu-bg);color:var(--pu);font-size:12px;font-weight:600;padding:1px 8px;border-radius:99px;}
+.srch{width:100%;max-width:380px;padding:10px 14px;border-radius:var(--rs);border:1px solid var(--bd2);background:var(--sf);color:var(--tx);font-size:14px;margin-bottom:12px;}
+.srch:focus{outline:none;border-color:var(--bl);box-shadow:0 0 0 3px var(--bl-bg);}
+.srch::placeholder{color:var(--tx3);}
+.empty{text-align:center;padding:64px 20px;color:var(--tx3);font-size:15px;line-height:1.6;}
+
+@media (max-width:900px){
+  .layout{grid-template-columns:minmax(0,1fr);}
+  .sidebar{position:static;height:auto;}
+  .main{padding:20px 16px 40px;}
+  .greet{font-size:34px;}
+  .stats{grid-template-columns:repeat(2,1fr);}
+  .stat{border-bottom:1px solid var(--bd);}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none !important;}}
+
+/* ===== NOVO: fornecedores multiplos / cadastro ===== */
+.mini-cod{display:block;font-size:12px;color:var(--tx3);font-variant-numeric:tabular-nums;font-weight:400;margin-top:1px;}
+.alt{display:flex;gap:6px;align-items:flex-start;margin-top:5px;padding:4px 9px;border-radius:8px;background:var(--am-bg);color:var(--am);font-size:12px;font-weight:500;line-height:1.35;max-width:560px;}
+.alt-ic{font-weight:700;flex-shrink:0;}
+.ref-tag{display:inline-block;background:var(--bl-bg);color:var(--bl);font-size:11px;font-weight:600;padding:1px 8px;border-radius:99px;margin-left:8px;vertical-align:middle;}
+.multi-tag{display:inline-block;background:var(--am-bg);color:var(--am);font-size:11px;font-weight:600;padding:1px 8px;border-radius:99px;margin-left:8px;vertical-align:middle;}
+.warn-tag{display:inline-block;background:var(--am-bg);color:var(--am);font-size:12px;font-weight:600;padding:1px 8px;border-radius:99px;}
+.exbtn.ex-forn{color:var(--bl);border-color:rgba(120,160,255,.35);}
+.exbtn.ex-forn:hover{background:var(--bl-bg);color:var(--bl);}
+.exbtn.ex-link{color:var(--tl);border-color:rgba(79,209,217,.4);background:var(--tl-bg);font-weight:600;}
+.exbtn.ex-link:hover{background:var(--tl);color:#03282A;}
+.cb-nm{display:flex;flex-direction:column;}
+.notice{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 16px;margin-bottom:14px;border-radius:var(--r);border:1px solid rgba(255,123,110,.35);background:var(--rd-bg);color:var(--tx);font-size:14px;}
+.notice b{color:var(--rd);}
+.sem-help{padding:12px 18px;font-size:13px;color:var(--tx2);background:var(--sf2);border-bottom:1px solid var(--bd);}
+.bought{border-top:1px solid var(--bd);background:rgba(61,214,160,.04);}
+.bought summary{padding:10px 18px;cursor:pointer;font-size:13px;font-weight:600;color:var(--gn);list-style:none;}
+.bought summary::-webkit-details-marker{display:none;}
+.bought summary::before{content:'\25B8';display:inline-block;margin-right:8px;transition:transform .15s;}
+.bought[open] summary::before{transform:rotate(90deg);}
+.bought .bt-warn{color:var(--am);font-weight:600;}
+.bt-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 18px;border-top:1px solid var(--bd);font-size:13px;}
+.bt-nm{flex:1;min-width:200px;color:var(--tx);font-weight:500;}
+.bt-st{display:flex;gap:6px;align-items:center;flex-wrap:wrap;}
+.comp-srch{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+/* toast */
+.toast{position:fixed;right:20px;bottom:20px;max-width:420px;padding:12px 16px;border-radius:12px;background:#E9EFF4;color:#0A0E13;font-size:14px;font-weight:500;box-shadow:0 10px 30px rgba(0,0,0,.5);z-index:60;opacity:0;transform:translateY(10px);transition:opacity .2s,transform .2s;pointer-events:none;}
+.toast.on{opacity:1;transform:none;}
+/* botoes / formularios */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:99px;border:1px solid var(--bd2);background:var(--sf);color:var(--tx);font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;white-space:nowrap;}
+.btn:hover{border-color:var(--tx3);background:var(--sf2);}
+.btn-pri{background:#3B6BF5;border-color:#3B6BF5;color:#fff;}
+.btn-pri:hover{filter:brightness(1.1);background:#3B6BF5;border-color:#3B6BF5;}
+.btn-dng{color:var(--rd);border-color:rgba(255,123,110,.4);}
+.btn-dng:hover{background:var(--rd-bg);border-color:var(--rd);}
+.btn-sm{padding:4px 11px;font-size:12px;font-weight:500;}
+.inp{padding:9px 12px;border-radius:var(--rs);border:1px solid var(--bd2);background:var(--sf);color:var(--tx);font-size:14px;font-family:inherit;}
+.inp:focus{outline:none;border-color:var(--bl);box-shadow:0 0 0 3px var(--bl-bg);}
+.inp::placeholder{color:var(--tx3);}
+.ck{display:inline-flex;align-items:center;gap:7px;font-size:13px;color:var(--tx2);cursor:pointer;}
+.ck input{width:15px;height:15px;accent-color:var(--bl);}
+.cad-bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:22px;}
+.sec{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);margin-bottom:18px;overflow:hidden;}
+.sec-h{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 18px;font-family:var(--disp);font-size:18px;font-weight:600;border-bottom:1px solid var(--bd);}
+.row-form{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:14px 18px;border-bottom:1px solid var(--bd);}
+.row-form .srch{margin-bottom:0;}
+.chip{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;padding:2px 9px;border-radius:99px;background:var(--sf2);color:var(--tx);box-shadow:inset 0 0 0 1px var(--bd2);margin:2px 4px 2px 0;}
+.chip.ref{background:var(--bl-bg);color:var(--bl);box-shadow:none;}
+.chip.none{background:var(--rd-bg);color:var(--rd);box-shadow:none;}
+.lim{padding:10px 18px;font-size:13px;color:var(--tx3);}
+/* modal */
+.mbg{position:fixed;inset:0;background:rgba(3,6,10,.7);display:flex;align-items:center;justify-content:center;z-index:50;padding:16px;}
+.mdl{background:var(--sf);border:1px solid var(--bd2);border-radius:16px;width:min(640px,100%);max-height:90vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.6);}
+.mdl-h{padding:18px 20px 12px;border-bottom:1px solid var(--bd);}
+.mdl-t{font-family:var(--disp);font-size:20px;font-weight:700;letter-spacing:-.01em;}
+.mdl-s{font-size:13px;color:var(--tx3);margin-top:3px;}
+.mdl-b{padding:14px 20px;overflow-y:auto;flex:1;}
+.mdl-f{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;padding:14px 20px;border-top:1px solid var(--bd);}
+.mdl-f .sp{margin-right:auto;}
+.mdl-lb{font-size:12px;font-weight:600;color:var(--tx3);margin:12px 0 6px;}
+.mdl-lb:first-child{margin-top:0;}
+.ml{border:1px solid var(--bd);border-radius:var(--rs);max-height:300px;overflow-y:auto;}
+.ml-row{display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid var(--bd);font-size:14px;}
+.ml-row:last-child{border-bottom:none;}
+.ml-row.on{background:rgba(120,160,255,.06);}
+.ml-row label.ml-lbl{flex:1;display:flex;align-items:center;gap:10px;cursor:pointer;color:var(--tx);}
+.ml-row input{width:16px;height:16px;accent-color:var(--bl);cursor:pointer;}
+.ml-ref{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--tx3);cursor:pointer;}
+.ml-ref.dis{opacity:.35;cursor:default;}
+.mdl-grid{display:grid;grid-template-columns:1fr 2fr;gap:8px;}
+.mdl-grid .inp{width:100%;}
+.mdl-sug{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px;border-radius:var(--rs);background:var(--tl-bg);color:var(--tx);font-size:13px;margin-bottom:10px;}
+
+/* selecao multipla - sem fornecedor */
+.sel-bar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:10px 18px;background:var(--sf2);border-bottom:1px solid var(--bd);position:sticky;top:0;z-index:2;}
+.sel-bar.on{background:#18233A;box-shadow:inset 3px 0 0 #3B6BF5;}
+.sel-n{font-size:13px;font-weight:600;color:var(--tx2);}
+.sel-bar.on .sel-n{color:var(--bl);}
+.sel-acts{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;}
+.btn:disabled{opacity:.4;cursor:not-allowed;filter:none;}
+.pt th.ckc,.pt td.ckc{width:34px;padding-right:0;}
+.ckc input{width:16px;height:16px;accent-color:var(--bl);cursor:pointer;vertical-align:middle;}
+.pt tr.sel-on td{background:rgba(120,160,255,.07);}
+.ni-c .pt tbody tr{cursor:pointer;}
+
+/* ===== Identidade visual da SR Central (verde escuro + verde-limao) ===== */
+:root{
+  --bg:#061505;--sf:#0c2408;--sf2:#102d0a;--bd:rgba(255,255,255,.08);--bd2:rgba(255,255,255,.15);
+  --tx:#f3f8ee;--tx2:#b4cba6;--tx3:#86a377;
+  --ink:#081b06;--ink2:#15370d;--ink-tx:#f3f8ee;--ink-mut:#a9c19a;--ink-bd:rgba(255,255,255,.07);
+  --lima:#b2e04a;--lima-bg:rgba(178,224,74,.12);
+  --disp:"Poppins","Inter","Segoe UI Variable","Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;
+  --body:"Poppins","Inter","Segoe UI Variable","Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;
+}
+body{-webkit-font-smoothing:antialiased;}
+.sidebar{border-right:1px solid var(--ink-bd);}
+.fi.active{box-shadow:inset 3px 0 0 var(--lima);}
+.logo{background:#0c2408;}
+:focus-visible{outline-color:var(--lima);}
+.btn-pri{background:var(--lima);border-color:var(--lima);color:#0b1f06;}
+.btn-pri:hover{background:var(--lima);border-color:var(--lima);filter:brightness(1.08);}
+.ml-row input,.ck input,.ckc input{accent-color:var(--lima);}
+.sel-bar.on{background:#15370d;box-shadow:inset 3px 0 0 var(--lima);}
+.sel-bar.on .sel-n{color:var(--lima);}
+.inp:focus{border-color:var(--lima);box-shadow:0 0 0 3px var(--lima-bg);}
+.notice-info{border-color:rgba(178,224,74,.35);background:var(--lima-bg);}
+.notice-info b{color:var(--lima);}
+
+/* status de gravacao + usuario logado */
+.sync-st{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ink-mut);padding:4px 4px 0;}
+.sync-st i{width:8px;height:8px;border-radius:50%;background:var(--ink-mut);flex-shrink:0;}
+.sync-st.ok i{background:#3DD6A0;box-shadow:0 0 0 3px rgba(61,214,160,.15);}
+.sync-st.sv i{background:#F5B301;animation:pulsa 1s ease-in-out infinite;}
+.sync-st.err{color:#FF9A91;font-weight:600;}
+.sync-st.err i{background:#FF7B6E;}
+@keyframes pulsa{50%{opacity:.35;}}
+.u-box{display:flex;align-items:center;gap:10px;padding:10px 4px 0;border-top:1px solid var(--ink-bd);margin-top:4px;}
+.u-av{width:32px;height:32px;border-radius:10px;background:var(--lima-bg);color:var(--lima);display:grid;place-items:center;font-size:12px;font-weight:700;flex-shrink:0;border:1px solid rgba(178,224,74,.3);}
+.u-tx{min-width:0;flex:1;}
+.u-nome{font-size:13px;font-weight:600;color:var(--ink-tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.u-user{font-size:11.5px;color:var(--ink-mut);}
+.u-sair{height:30px;padding:0 10px;border-radius:8px;border:1px solid var(--ink-bd);background:rgba(255,255,255,.04);color:var(--ink-tx);font-size:12px;cursor:pointer;}
+.u-sair:hover{border-color:var(--lima);}
+
+/* ===== Telas de login (mesmo modelo de sistemas/_modelo.html) ===== */
+.lg-tela{position:fixed;inset:0;z-index:80;overflow-y:auto;display:grid;place-items:center;padding:24px;
+  background:radial-gradient(700px 480px at 85% -10%,rgba(178,224,74,.18),transparent 60%),radial-gradient(600px 500px at -10% 110%,rgba(43,115,3,.35),transparent 60%),#081b06;}
+[hidden]{display:none !important;}
+.lg-tela svg.i{width:26px;height:26px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
+.lg-card{width:100%;max-width:400px;background:rgba(12,36,8,.85);border:1px solid rgba(255,255,255,.12);border-radius:20px;padding:34px 30px 28px;box-shadow:0 30px 80px rgba(0,0,0,.45);backdrop-filter:blur(8px);animation:lg-sobe .4s cubic-bezier(.2,.8,.2,1);color:#f3f8ee;}
+@keyframes lg-sobe{from{opacity:0;transform:translateY(10px);}}
+.lg-topo{display:flex;align-items:center;gap:14px;}
+.lg-ic{width:50px;height:50px;border-radius:14px;display:grid;place-items:center;color:#b2e04a;background:rgba(178,224,74,.14);border:1px solid rgba(178,224,74,.3);flex-shrink:0;}
+.lg-sist{font-size:12px;color:#86a377;}
+.lg-card h1{font-size:20px;letter-spacing:-.4px;font-family:var(--body);}
+.lg-sub{color:#a9c19a;margin:22px 0 20px;}
+.lg-card label{display:block;font-size:12px;color:#a9c19a;margin-bottom:6px;font-weight:500;}
+.lg-campo{margin-bottom:14px;}
+.lg-card input{width:100%;height:44px;padding:0 14px;border-radius:11px;background:#102d0a;border:1px solid rgba(255,255,255,.12);color:#f3f8ee;font:inherit;outline:none;transition:border-color .15s,box-shadow .15s;}
+.lg-card input:focus{border-color:#b2e04a;box-shadow:0 0 0 3px rgba(178,224,74,.18);}
+.lg-btn{width:100%;height:44px;border:0;border-radius:11px;background:#b2e04a;color:#0b1f06;font:inherit;font-weight:700;cursor:pointer;margin-top:6px;transition:filter .15s;display:inline-flex;align-items:center;justify-content:center;}
+.lg-btn:hover{filter:brightness(1.08);}
+.lg-btn:disabled{opacity:.6;cursor:default;}
+.lg-btn.sec{background:rgba(255,255,255,.06);color:#f3f8ee;border:1px solid rgba(255,255,255,.12);}
+.lg-dica{margin-top:16px;color:#86a377;font-size:12.5px;text-align:center;}
+.lg-erro{background:rgba(229,72,77,.1);border:1px solid rgba(229,72,77,.35);color:#ffb4b6;padding:10px 12px;border-radius:10px;font-size:13px;margin-bottom:14px;}
+.lg-aviso{background:rgba(178,224,74,.1);border:1px solid rgba(178,224,74,.3);color:#d9f2a6;padding:10px 12px;border-radius:10px;font-size:13px;margin-bottom:14px;}
+.lg-spin{width:30px;height:30px;border:3px solid rgba(255,255,255,.1);border-top-color:#b2e04a;border-radius:50%;animation:lg-gira .8s linear infinite;}
+.lg-spin.mini{width:18px;height:18px;border-width:2px;border-color:rgba(0,0,0,.2);border-top-color:currentColor;}
+@keyframes lg-gira{to{transform:rotate(360deg);}}
+.lg-centro{text-align:center;}
+.lg-centro .lg-ic{margin:0 auto 16px;width:60px;height:60px;border-radius:18px;}
+.lg-centro h2{font-size:19px;margin-bottom:8px;}
+.lg-centro p{color:#a9c19a;margin-bottom:18px;}
+.lg-centro b{color:#f3f8ee;}
+.lg-carga{text-align:center;color:#a9c19a;font-size:13px;}
+.lg-carga .lg-spin{margin:0 auto 14px;}
 </style>
 </head>
 <body>
-  <!-- carregando -->
-  <div class="tela" id="t-carregando"><div class="spin"></div></div>
 
-  <!-- login -->
-  <div class="tela" id="t-login" hidden>
-    <form class="card" id="form" autocomplete="on">
-      <div class="topo">
-        <div class="ic"><svg class="i" viewBox="0 0 24 24"><circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2.5 3h2.6l2.4 12.2a1.5 1.5 0 0 0 1.5 1.2h8.7a1.5 1.5 0 0 0 1.5-1.1L21 7.5H6"/></svg></div>
-        <div><div class="sist">Souza Ribeiro</div><h1>SR Compras</h1></div>
+  <!-- ===== carregando ===== -->
+  <div class="lg-tela" id="t-carregando"><div class="lg-carga"><div class="lg-spin"></div><div id="carga-txt"></div></div></div>
+
+  <!-- ===== login (usuario e senha cadastrados em Configuracoes da SR Central) ===== -->
+  <div class="lg-tela" id="t-login" hidden>
+    <form class="lg-card" id="lg-form" autocomplete="on">
+      <div class="lg-topo">
+        <div class="lg-ic"><svg class="i" viewBox="0 0 24 24"><circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2.5 3h2.6l2.4 12.2a1.5 1.5 0 0 0 1.5 1.2h8.7a1.5 1.5 0 0 0 1.5-1.1L21 7.5H6"/></svg></div>
+        <div><div class="lg-sist">Souza Ribeiro</div><h1>SR Compras</h1></div>
       </div>
-      <p class="sub">Entre com o seu usuário para acessar o sistema.</p>
-      <div class="erro" id="erro" hidden></div>
-      <div class="campo"><label for="usuario">Usuário</label><input id="usuario" name="usuario" autocomplete="username" autocapitalize="none" spellcheck="false" required></div>
-      <div class="campo"><label for="senha">Senha</label><input id="senha" name="senha" type="password" autocomplete="current-password" required></div>
-      <button class="btn" type="submit" id="btn-entrar">Entrar</button>
-      <div class="dica">Esqueceu a senha? Peça ao administrador para trocar.</div>
+      <p class="lg-sub">Entre com o seu usuário para acessar o sistema.</p>
+      <div class="lg-aviso" id="lg-aviso" hidden></div>
+      <div class="lg-erro" id="lg-erro" hidden></div>
+      <div class="lg-campo"><label for="lg-usuario">Usuário</label><input id="lg-usuario" name="usuario" autocomplete="username" autocapitalize="none" spellcheck="false" required></div>
+      <div class="lg-campo"><label for="lg-senha">Senha</label><input id="lg-senha" name="senha" type="password" autocomplete="current-password" required></div>
+      <button class="lg-btn" type="submit" id="lg-entrar">Entrar</button>
+      <div class="lg-dica">Esqueceu a senha? Peça ao administrador para trocar.</div>
     </form>
   </div>
 
-  <!-- sem acesso -->
-  <div class="tela" id="t-sem-acesso" hidden>
-    <div class="card centro">
-      <div class="ic"><svg class="i" viewBox="0 0 24 24"><circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2.5 3h2.6l2.4 12.2a1.5 1.5 0 0 0 1.5 1.2h8.7a1.5 1.5 0 0 0 1.5-1.1L21 7.5H6"/></svg></div>
+  <!-- ===== sem acesso ===== -->
+  <div class="lg-tela" id="t-sem-acesso" hidden>
+    <div class="lg-card lg-centro">
+      <div class="lg-ic"><svg class="i" viewBox="0 0 24 24"><circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2.5 3h2.6l2.4 12.2a1.5 1.5 0 0 0 1.5 1.2h8.7a1.5 1.5 0 0 0 1.5-1.1L21 7.5H6"/></svg></div>
       <h2>Sem acesso ao SR Compras</h2>
       <p>O usuário <b id="sa-nome"></b> não tem este sistema liberado. Peça ao administrador para liberar em Configurações.</p>
-      <button class="btn sec" id="btn-trocar">Entrar com outro usuário</button>
+      <button class="lg-btn sec" id="lg-trocar">Entrar com outro usuário</button>
     </div>
   </div>
 
-  <!-- sistema (depois do login) -->
-  <div class="app" id="t-app" hidden>
-    <header class="barra">
-      <div class="ic"><svg class="i" viewBox="0 0 24 24"><circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2.5 3h2.6l2.4 12.2a1.5 1.5 0 0 0 1.5 1.2h8.7a1.5 1.5 0 0 0 1.5-1.1L21 7.5H6"/></svg></div>
-      <h1>SR Compras</h1>
-      <div class="quem"><span>Olá, <b id="app-nome"></b></span><button class="sair" id="btn-sair">Sair</button></div>
-    </header>
-    <main class="conteudo">
-      <!-- ===== SUBSTITUA ESTE BLOCO PELO SISTEMA ===== -->
-      <div class="construcao">
-        <div class="ic"><svg class="i" viewBox="0 0 24 24"><circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2.5 3h2.6l2.4 12.2a1.5 1.5 0 0 0 1.5 1.2h8.7a1.5 1.5 0 0 0 1.5-1.1L21 7.5H6"/></svg></div>
-        <h2>SR Compras em construção</h2>
-        <p>O login já está funcionando. O sistema entra no arquivo <code>sistemas/compras/index.html</code>.</p>
-      </div>
-      <!-- ============================================== -->
-    </main>
+  <!-- ===== falha ao carregar os dados ===== -->
+  <div class="lg-tela" id="t-falha" hidden>
+    <div class="lg-card lg-centro">
+      <div class="lg-ic"><svg class="i" viewBox="0 0 24 24"><circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2.5 3h2.6l2.4 12.2a1.5 1.5 0 0 0 1.5 1.2h8.7a1.5 1.5 0 0 0 1.5-1.1L21 7.5H6"/></svg></div>
+      <h2>Não foi possível carregar o SR Compras</h2>
+      <p id="falha-msg"></p>
+      <button class="lg-btn" id="lg-tentar">Tentar de novo</button>
+    </div>
   </div>
 
-  <script src="../../assets/sr-config.js"></script>
-  <script src="../../assets/sr-auth.js"></script>
-  <script>
-  (function () {
-    var SISTEMA = 'compras';
-    var telas = ['t-carregando', 't-login', 't-sem-acesso', 't-app'];
-    function ver(id) { telas.forEach(function (t) { document.getElementById(t).hidden = t !== id; }); }
+  <!-- ===== sistema (depois do login) ===== -->
+  <div id="t-app" hidden>
 
-    async function verificar() {
-      ver('t-carregando');
-      var cad = null;
-      try { cad = await SRAuth.meuCadastro(true); } catch (e) { return mostrarLogin(e.message); }
-      if (!cad || !cad.ativo) return mostrarLogin();
-      if (!SRAuth.temAcesso(cad, SISTEMA)) {
-        document.getElementById('sa-nome').textContent = cad.nome + ' (@' + cad.username + ')';
-        return ver('t-sem-acesso');
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sh">
+      <img class="logo" id="logo-img" src="../../assets/marca/logo-completo.png" alt="Souza Ribeiro">
+      <div class="sh-sub">Gestao de Compras</div>
+    </div>
+    <div class="ss">
+      <div class="ssl">Filtros</div>
+      <div class="fi active" onclick="setFilter('todos',this)">
+        <div class="fi-l"><div class="fi-dot" style="background:var(--tx3)"></div>Todos</div>
+        <span class="fi-n" id="fc-t">0</span>
+      </div>
+      <div class="fi" onclick="setFilter('pendente',this)">
+        <div class="fi-l"><div class="fi-dot" style="background:var(--rd)"></div>Pendentes</div>
+        <span class="fi-n" id="fc-p">0</span>
+      </div>
+      <div class="fi" onclick="setFilter('andamento',this)">
+        <div class="fi-l"><div class="fi-dot" style="background:var(--am)"></div>Em andamento</div>
+        <span class="fi-n" id="fc-a">0</span>
+      </div>
+      <div class="fi" onclick="setFilter('concluido',this)">
+        <div class="fi-l"><div class="fi-dot" style="background:var(--gn)"></div>Concluidos</div>
+        <span class="fi-n" id="fc-d">0</span>
+      </div>
+    </div>
+    <div class="ss">
+      <div class="ssl">Data</div>
+      <div class="sdate" id="sdate"></div>
+    </div>
+    <div class="sbot">
+      <input type="file" id="file-csv" accept=".csv,.xlsx,.xls" style="display:none" onchange="handleCSV(this.files[0]);this.value=''">
+      <button class="upbtn" onclick="document.getElementById('file-csv').click()">Importar planilha CSV</button>
+      <input type="file" id="file-sheets" accept=".csv" style="display:none" onchange="handleSheets(this.files[0]);this.value=''">
+      <button class="sheets-btn" onclick="document.getElementById('file-sheets').click()">Importar CSV do Sheets</button>
+      <div id="sheets-status" style="display:none" class="sheets-status"></div>
+      <button class="upbtn" onclick="setView('cad')">Cadastro de fornecedores</button>
+      <button class="upbtn" onclick="limparDados()">Limpar ciclo atual</button>
+      <div class="sync-st" id="sync-st"><i></i>Carregando...</div>
+      <div class="u-box">
+        <div class="u-av" id="u-av"></div>
+        <div class="u-tx"><div class="u-nome" id="u-nome"></div><div class="u-user" id="u-user"></div></div>
+        <button class="u-sair" id="btn-sair" title="Sair">Sair</button>
+      </div>
+    </div>
+  </aside>
+  <main class="main">
+    <div class="tabs">
+      <button class="tab active" id="tab-compras" onclick="setView('compras')">Compras</button>
+      <button class="tab" id="tab-extra" onclick="setView('extra')">Vendas extraordinarias<span class="tab-n" id="tab-n">0</span></button>
+      <button class="tab" id="tab-desc" onclick="setView('desc')">Vendas descontinuadas<span class="tab-n" id="tab-nd">0</span></button>
+      <button class="tab" id="tab-buy" onclick="setView('buy')">Comprados<span class="tab-n" id="tab-nb">0</span></button>
+      <button class="tab" id="tab-cad" onclick="setView('cad')">Cadastro<span class="tab-n" id="tab-nc" title="Produtos da lista atual sem fornecedor cadastrado">0</span></button>
+    </div>
+    <div id="view-compras">
+    <div class="greet" id="greet"></div>
+    <div class="greet-sub" id="greet-sub"></div>
+    <div class="stats">
+      <div class="stat"><div class="stat-lb">Fornecedores</div><div class="stat-vl" id="s0">0</div></div>
+      <div class="stat"><div class="stat-lb">Produtos</div><div class="stat-vl" id="s1">0</div></div>
+      <div class="stat"><div class="stat-lb">Pendentes</div><div class="stat-vl v-r" id="s2">0</div></div>
+      <div class="stat"><div class="stat-lb">Em andamento</div><div class="stat-vl v-a" id="s3">0</div></div>
+      <div class="stat"><div class="stat-lb">Concluidos</div><div class="stat-vl v-g" id="s4">0</div></div>
+    </div>
+    <div class="prog-w">
+      <div class="prog-i"><span>Progresso do dia</span><span id="prog-pct">0%</span></div>
+      <div class="prog-b"><div class="prog-f" id="prog-f" style="width:0%"></div></div>
+    </div>
+    <div class="comp-srch"><input class="srch" id="comp-q" placeholder="Buscar fornecedor, produto, codigo ou marca" oninput="render()"></div>
+    <div id="tlist"></div>
+    </div>
+    <div id="view-extra" style="display:none">
+      <div class="greet">Vendas extraordinarias</div>
+      <div class="greet-sub" id="extra-sum">0 item(ns) marcado(s)</div>
+      <input class="srch" id="extra-q" placeholder="Buscar por produto, codigo ou marca" oninput="renderExtra()">
+      <div id="extra-list"></div>
+    </div>
+    <div id="view-desc" style="display:none">
+      <div class="greet">Vendas descontinuadas</div>
+      <div class="greet-sub" id="desc-sum">0 item(ns) marcado(s)</div>
+      <input class="srch" id="desc-q" placeholder="Buscar por produto, codigo ou marca" oninput="renderDesc()">
+      <div id="desc-list"></div>
+    </div>
+    <div id="view-buy" style="display:none">
+      <div class="greet">Comprados</div>
+      <div class="greet-sub" id="buy-sum">0 item(ns) marcado(s)</div>
+      <input class="srch" id="buy-q" placeholder="Buscar por produto, codigo ou marca" oninput="renderBuy()">
+      <div id="buy-list"></div>
+    </div>
+    <div id="view-cad" style="display:none">
+      <div class="greet">Cadastro de fornecedores</div>
+      <div class="greet-sub" id="cad-sum"></div>
+      <div class="notice notice-info" id="cad-dica" style="display:none"><span><b>Cadastro vazio.</b> Para trazer o cadastro que voce ja fez no arquivo antigo (compras.html no seu computador): abra o arquivo antigo, va em <b>Cadastro &rarr; Exportar backup do cadastro</b> e, aqui, use <b>Importar backup</b>. Depois e so importar a planilha de sugestoes de novo.</span></div>
+      <div class="cad-bar">
+        <button class="btn" onclick="exportarBackup()">Exportar backup do cadastro</button>
+        <button class="btn" onclick="document.getElementById('file-bak').click()">Importar backup</button>
+        <input type="file" id="file-bak" accept=".json,application/json" style="display:none" onchange="importarBackup(this.files[0]);this.value=''">
+        <button class="btn btn-dng" id="btn-restore" style="display:none" onclick="restaurarBak()">Restaurar cadastro anterior a ultima importacao</button>
+      </div>
+      <div class="sec">
+        <div class="sec-h">Fornecedores</div>
+        <div class="row-form">
+          <input class="inp" id="nf-nome" style="flex:1;min-width:220px" placeholder="Nome do novo fornecedor (ex: F Martins)" onkeydown="if(event.key==='Enter')addForn()">
+          <label class="ck"><input type="checkbox" id="nf-at"> Cotacao de atacado (lista com selecao)</label>
+          <button class="btn btn-pri" onclick="addForn()">Adicionar fornecedor</button>
+        </div>
+        <div id="cad-forn"></div>
+      </div>
+      <div class="sec">
+        <div class="sec-h">Produtos e vinculos<button class="btn btn-sm" onclick="novoProduto()">+ Cadastrar produto manualmente</button></div>
+        <div class="row-form">
+          <input class="srch" id="cad-q" style="flex:1" placeholder="Buscar por produto, codigo, marca ou fornecedor" oninput="renderCadProd()">
+          <select class="inp" id="cad-f" onchange="renderCadProd()">
+            <option value="cad">Todos os produtos cadastrados</option>
+            <option value="sem">Lista atual - sem fornecedor</option>
+            <option value="multi">Lista atual - varios fornecedores</option>
+            <option value="atual">Lista atual - todos</option>
+          </select>
+        </div>
+        <div id="cad-prod"></div>
+      </div>
+    </div>
+  </main>
+</div>
+<div class="mbg" id="mbg" style="display:none" onclick="if(event.target===this)fecharModal()"><div class="mdl" id="mdl"></div></div>
+<div class="toast" id="toast"></div>
+  </div>
+<script src="../../assets/sr-config.js"></script>
+<script src="../../assets/sr-auth.js"></script>
+<script src="xlsx.full.min.js"></script>
+<script>
+// =====================================================================
+//  SINCRONIZACAO COM O SUPABASE (tabela compras_registros)
+//  Cada registro (um fornecedor, um produto, uma marcacao...) e gravado
+//  separadamente. Ao salvar, so o que mudou desde a ultima gravacao vai
+//  para o servidor. Assim duas pessoas usando ao mesmo tempo nao apagam
+//  o trabalho uma da outra.
+// =====================================================================
+var DB = {
+  snap: {},            // colecao -> {chave: json gravado no servidor}
+  fila: Promise.resolve(),
+  pend: 0,             // gravacoes em andamento
+  erro: '',            // ultima falha de gravacao (vazio = tudo salvo)
+  edits: 0,            // contador de alteracoes locais (evita sobrescrever durante recarga)
+  versao: '',
+  retry: null,
+  pronto: false
+};
+var COLECOES = ['fornecedor','produto','extra','desc','comprado','estado','ciclo','sheets','backup'];
+var cadBak = null;     // copia do cadastro antes de importar um backup
+
+function vazioEstado(st) {
+  if (!st) return true;
+  var temChk = st.checked && Object.keys(st.checked).some(function(k){ return st.checked[k]; });
+  return !st.an && !temChk;
+}
+function limpoEstado(st) {
+  var c = {};
+  Object.keys(st.checked || {}).forEach(function(k){ if (st.checked[k]) c[k] = true; });
+  return {an:!!st.an, checked:c};
+}
+// estado atual em memoria de cada colecao, no formato {chave: valor}
+function colAtual(col) {
+  if (col === 'fornecedor') return cad.fornecedores;
+  if (col === 'produto') return cad.produtos;
+  if (col === 'extra') return extras;
+  if (col === 'desc') return descs;
+  if (col === 'comprado') return buys;
+  if (col === 'estado') {
+    var o = {};
+    Object.keys(tstate).forEach(function(id){ if (!vazioEstado(tstate[id])) o[id] = limpoEstado(tstate[id]); });
+    return o;
+  }
+  if (col === 'ciclo') return raw.length ? {atual:{raw:raw, importDate:importDate, nRaw:nRaw}} : {};
+  if (col === 'sheets') return Object.keys(sheetsData).length || sheetsMsg.msg ? {atual:{dados:sheetsData, msg:sheetsMsg}} : {};
+  if (col === 'backup') return cadBak ? {cadastro:cadBak} : {};
+  return {};
+}
+
+function sincronizar(cols) {
+  if (!DB.pronto) return;
+  DB.edits++;
+  (cols || COLECOES).forEach(function(col){
+    var atual = colAtual(col), snap = DB.snap[col] || (DB.snap[col] = {});
+    var ups = [], dels = [];
+    Object.keys(atual).forEach(function(k){
+      var s = JSON.stringify(atual[k]);
+      if (snap[k] !== s) { ups.push({colecao:col, chave:k, valor:atual[k]}); snap[k] = s; }
+    });
+    Object.keys(snap).forEach(function(k){
+      if (!(k in atual)) { dels.push(k); delete snap[k]; }
+    });
+    for (var i = 0; i < ups.length; i += 200) enfileirar(col, 'up', ups.slice(i, i + 200));
+    for (var j = 0; j < dels.length; j += 60) enfileirar(col, 'del', dels.slice(j, j + 60));
+  });
+}
+
+function aspasPg(k) { return '"' + String(k).replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"'; }
+
+function enfileirar(col, tipo, itens) {
+  DB.pend++;
+  statusSalvo();
+  DB.fila = DB.fila.then(function(){
+    if (tipo === 'up') {
+      return SRAuth.rest('compras_registros?on_conflict=colecao,chave', {
+        method:'POST', body:itens,
+        headers:{Prefer:'resolution=merge-duplicates,return=minimal'}
+      });
+    }
+    return SRAuth.rest('compras_registros?colecao=eq.' + encodeURIComponent(col) +
+      '&chave=in.' + encodeURIComponent('(' + itens.map(aspasPg).join(',') + ')'), {
+      method:'DELETE', headers:{Prefer:'return=minimal'}
+    });
+  }).then(function(){
+    DB.pend--;
+    statusSalvo();
+  }, function(e){
+    DB.pend--;
+    // devolve os itens para a proxima tentativa
+    var snap = DB.snap[col] || (DB.snap[col] = {});
+    if (tipo === 'up') itens.forEach(function(it){ delete snap[it.chave]; });
+    else itens.forEach(function(k){ snap[k] = '\u0000pendente'; });
+    DB.erro = (e && e.message) || 'Falha ao salvar.';
+    statusSalvo();
+    if (e && e.status === 401) { if (window.SRCompras) SRCompras.sessaoExpirou(); return; }
+    clearTimeout(DB.retry);
+    DB.retry = setTimeout(function(){ DB.erro = ''; sincronizar(); }, 15000);
+  });
+}
+
+function statusSalvo() {
+  var el = document.getElementById('sync-st');
+  if (!el) return;
+  var cls, txt;
+  if (DB.erro) { cls = 'err'; txt = 'Nao salvo - tentando de novo'; el.title = DB.erro; }
+  else if (DB.pend > 0) { cls = 'sv'; txt = 'Salvando...'; el.title = ''; }
+  else { cls = 'ok'; txt = 'Tudo salvo no servidor'; el.title = 'Os dados ficam no banco da SR Central e aparecem para todos que usam o SR Compras.'; }
+  el.className = 'sync-st ' + cls;
+  el.innerHTML = '<i></i>' + txt;
+}
+window.addEventListener('beforeunload', function(e){
+  if (DB.pend > 0 || DB.erro) { e.preventDefault(); e.returnValue = ''; }
+});
+
+// Le todos os registros (em paginas de 1000)
+async function baixarTudo() {
+  var todos = [], off = 0;
+  while (true) {
+    var pg = await SRAuth.rest('compras_registros?select=colecao,chave,valor&order=colecao.asc,chave.asc&limit=1000&offset=' + off);
+    todos = todos.concat(pg || []);
+    if (!pg || pg.length < 1000) break;
+    off += 1000;
+  }
+  return todos;
+}
+async function versaoServidor() {
+  return SRAuth.rest('rpc/compras_versao', {method:'POST', body:{}});
+}
+
+// Substitui os dados em memoria pelos do servidor
+function aplicarServidor(linhas) {
+  var por = {};
+  COLECOES.forEach(function(c){ por[c] = {}; });
+  linhas.forEach(function(l){ if (por[l.colecao]) por[l.colecao][l.chave] = l.valor; });
+  cad.fornecedores = por.fornecedor;
+  cad.produtos = por.produto;
+  extras = por.extra; descs = por.desc; buys = por.comprado;
+  tstate = {};
+  Object.keys(por.estado).forEach(function(id){ var v = por.estado[id] || {}; tstate[id] = {an:!!v.an, checked:v.checked || {}}; });
+  var c = por.ciclo.atual;
+  raw = (c && Array.isArray(c.raw)) ? c.raw : [];
+  importDate = (c && c.importDate) || '';
+  nRaw = (c && c.nRaw) || raw.length;
+  var s = por.sheets.atual;
+  sheetsData = (s && s.dados) || {};
+  sheetsMsg = (s && s.msg) || {msg:'', type:''};
+  cadBak = por.backup.cadastro || null;
+  DB.snap = {};
+  COLECOES.forEach(function(col){
+    DB.snap[col] = {};
+    Object.keys(por[col]).forEach(function(k){ DB.snap[col][k] = JSON.stringify(por[col][k]); });
+  });
+  sanitizeCad();
+}
+
+async function carregarServidor() {
+  var v = await versaoServidor();
+  var linhas = await baixarTudo();
+  aplicarServidor(linhas);
+  DB.versao = v;
+  DB.pronto = true;
+  sincronizar(['fornecedor','produto']); // grava ajustes do sanitizeCad, se houver
+}
+
+// Verifica se outra pessoa alterou algo e recarrega
+var ATUALIZANDO = false;
+async function verificarAtualizacao(forcar) {
+  if (!DB.pronto || ATUALIZANDO || document.hidden) return;
+  if (DB.pend > 0 || DB.erro) return;
+  if (document.getElementById('mbg').style.display !== 'none') return; // janela aberta
+  ATUALIZANDO = true;
+  try {
+    var v = await versaoServidor();
+    if (!forcar && v === DB.versao) return;
+    var marca = DB.edits;
+    var linhas = await baixarTudo();
+    if (marca !== DB.edits || DB.pend > 0) return; // houve edicao local nesse meio tempo
+    aplicarServidor(linhas);
+    DB.versao = v;
+    rebuild();
+    if (raw.length) showGreet();
+    if (sheetsMsg.msg) setStatus(sheetsMsg.msg, sheetsMsg.type); else document.getElementById('sheets-status').style.display = 'none';
+    updSum(); render(); renderExtra(); renderDesc(); renderBuy();
+    if (view === 'cad') renderCad();
+  } catch (e) {
+    if (e && e.status === 401 && window.SRCompras) SRCompras.sessaoExpirou();
+  } finally {
+    ATUALIZANDO = false;
+  }
+}
+
+// ===== Preferencias de tela (so deste navegador) =====
+var UI_KEY = 'sr_compras_tela_v1';
+function salvarTela() {
+  try { localStorage.setItem(UI_KEY, JSON.stringify({view:view, fm:fm, exp:exp})); } catch(e) {}
+}
+function lerTela() {
+  try {
+    var d = JSON.parse(localStorage.getItem(UI_KEY) || 'null');
+    if (d) { view = d.view || 'compras'; fm = d.fm || 'todos'; exp = d.exp || {}; }
+  } catch(e) {}
+}
+
+// =====================================================================
+//  MAPEAMENTO ANTIGO POR MARCA
+//  Agora usado apenas como SUGESTAO para produtos sem fornecedor
+//  cadastrado. A organizacao real das listas vem do Cadastro.
+// =====================================================================
+var GRUPOS = {
+  'ABBASPEL':   ['delicate','delicatte','alveflor','suavepel'],
+  'START':      ['tuff','azulim','start','asseptgel','polylar','indy','vorel'],
+  'CAJUBA':     ['cajuba','uberlandia'],
+  'LIFE CLEAN': ['kentex','life clean','profix'],
+  'MEDIX':      ['medix','mblife'],
+  'BELLOCOPO':  ['bellofesta','bellocopo','copobom','verocopo'],
+  'DOMUS':      ['domus','duomo'],
+  'KIMBERLY':   ['scott','wiper wypall']
+};
+var AT_LIST = ['ype','bombril','cif','sapolio','ouro branco','sonho de valsa','duracell','assolan','dafruta','maguary','coca cola','dajuda','qualy','lacta','apti','paloma','3m','scotch','scotch-brite','baygon','sbp','condor','triangulo','termolar','triex','veja','adelbras','zero cal','vilma','toscano','toddy','tixan','tekbond','talento','riclan','real','leao','delicia','qboa','casaflor','politriz','petyan','nestle','mineirinha','marluce','mabel','limpol','fiatlux','delta','linea'];
+var AT_SET = {};
+AT_LIST.forEach(function(m){ AT_SET[m] = true; });
+var GM = {};
+Object.keys(GRUPOS).forEach(function(g){ GRUPOS[g].forEach(function(m){ GM[m.toLowerCase()] = g; }); });
+var AT_NOME = 'Cotacao Atacados';
+
+function resForn(marca) {
+  var m = marca.toLowerCase().trim();
+  if (AT_SET[m]) return '__AT__';
+  return GM[m] || marca.trim();
+}
+
+// Fornecedor sugerido para um produto ainda sem cadastro
+function sugestao(r) {
+  if (r.fornPlanilha) return normNome(r.fornPlanilha);
+  var marca = (r.marca || '').trim();
+  if (!marca) return '';
+  if (marca.toUpperCase().replace(/\s/g,'').indexOf('NAOINFORM') === 0) return '';
+  var f = resForn(marca);
+  if (f === '__AT__') return AT_NOME;
+  return normNome(f);
+}
+
+function parseNum(s) {
+  s = (s || '').toString().trim().replace(/[()]/g,'').replace(/"/g,'');
+  if (!s) return 0;
+  var pts = s.split(',');
+  var ip = pts[0].replace(/\./g,'');
+  var dp = pts.length > 1 ? pts[1] : '0';
+  return parseFloat(ip + '.' + dp) || 0;
+}
+
+function parseVol(v) {
+  if (!v) return {un:'UN',fa:1,conv:false};
+  var s = v.toString().trim().toUpperCase();
+  var m = s.match(/^([A-Z]+)\*(\d+(?:[,.]?\d*)?)$/);
+  if (m) {
+    var f = parseFloat(m[2].replace(',','.'));
+    return {un:m[1],fa:f,conv:f>1};
+  }
+  return {un:s.replace(/[^A-Z]/g,'')||'UN',fa:1,conv:false};
+}
+
+function convQtd(qtd, vol) {
+  var p = parseVol(vol);
+  if (p.conv) return {q:Math.ceil(qtd/p.fa),un:p.un,fa:p.fa,tot:Math.ceil(qtd/p.fa)*p.fa};
+  return {q:Math.ceil(qtd),un:p.un,fa:0,tot:Math.ceil(qtd)};
+}
+
+function fmtR(n) { return 'R$ '+n.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+
+// ===== SHEETS =====
+var sheetsData = {};
+
+function setStatus(msg, type) {
+  var el = document.getElementById('sheets-status');
+  el.style.display = 'block';
+  el.className = 'sheets-status ' + type;
+  el.textContent = msg;
+}
+
+function parseCSVRows(text) {
+  var rows = [];
+  var cur = '';
+  var inQ = false;
+  for (var i = 0; i < text.length; i++) {
+    var c = text[i];
+    if (c === '"') {
+      inQ = !inQ;
+      cur += c;
+    } else if (c === '\n' && !inQ) {
+      rows.push(cur);
+      cur = '';
+    } else {
+      cur += c;
+    }
+  }
+  if (cur.trim()) rows.push(cur);
+  return rows;
+}
+
+function parseCSVLine(line) {
+  var result = [];
+  var cur = '';
+  var inQ = false;
+  for (var i = 0; i < line.length; i++) {
+    var c = line[i];
+    if (c === '"') {
+      inQ = !inQ;
+    } else if (c === ',' && !inQ) {
+      result.push(cur.replace(/\r/g,'').trim());
+      cur = '';
+    } else {
+      cur += c;
+    }
+  }
+  result.push(cur.replace(/\r/g,'').trim());
+  return result;
+}
+
+function handleSheets(file) {
+  if (!file) return;
+  setStatus('Lendo...', 'loading');
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      var text = e.target.result;
+      var rows = parseCSVRows(text);
+      if (rows.length < 2) { setStatus('Planilha vazia', 'err'); return; }
+
+      var headers = parseCSVLine(rows[0]);
+      var chegouIdx = -1;
+      var prodIdx = 2;
+      for (var i = 0; i < headers.length; i++) {
+        var h = headers[i].toLowerCase().replace(/\r/g,'').replace(/\n/g,'').trim();
+        if (h.indexOf('chegou') >= 0) chegouIdx = i;
+        if (h.indexOf('produto') >= 0) prodIdx = i;
       }
-      document.getElementById('app-nome').textContent = cad.nome;
-      ver('t-app');
-      // >>> inicie o sistema aqui (o usuário logado é "cad") <<<
-    }
 
-    function mostrarLogin(msg) {
-      var e = document.getElementById('erro');
-      e.textContent = msg || '';
-      e.hidden = !msg;
-      ver('t-login');
-      setTimeout(function () { var u = document.getElementById('usuario'); (u.value ? document.getElementById('senha') : u).focus(); }, 30);
-    }
+      var newData = {};
+      var ignorados = 0;
 
-    document.getElementById('form').addEventListener('submit', async function (ev) {
-      ev.preventDefault();
-      var b = document.getElementById('btn-entrar');
-      b.disabled = true; b.innerHTML = '<span class="spin mini"></span>';
-      try {
-        await SRAuth.entrar(this.usuario.value, this.senha.value);
-        this.senha.value = '';
-        await verificar();
-      } catch (err) {
-        mostrarLogin(err.message);
-      } finally {
-        b.disabled = false; b.textContent = 'Entrar';
+      for (var ri = 1; ri < rows.length; ri++) {
+        var line = rows[ri];
+        if (!line.trim()) continue;
+        var cols = parseCSVLine(line);
+
+        // Verificar Chegou?
+        var chegou = '';
+        if (chegouIdx >= 0 && chegouIdx < cols.length) {
+          chegou = cols[chegouIdx].toLowerCase().trim();
+        }
+        if (chegou === 'sim' || chegou === 's' || chegou === 'yes') {
+          ignorados++;
+          continue;
+        }
+
+        // Ler produtos
+        var prodCol = prodIdx < cols.length ? cols[prodIdx] : '';
+        prodCol = prodCol.split('"').join('').replace(/\r/g,'').trim();
+        if (!prodCol) continue;
+
+        var prodLines = prodCol.split('\n');
+        for (var pi = 0; pi < prodLines.length; pi++) {
+          var pl = prodLines[pi].replace(/\r/g,'').replace(/"/g,'').trim();
+          if (!pl) continue;
+          var parts = pl.split('|');
+          if (parts.length < 3) continue;
+          var cod = parts[0].trim();
+          if (!cod) continue;
+          var ultimo = parts[parts.length - 1].trim();
+          // Extrair apenas o numero do inicio (ex: "670 PC" -> 670)
+          var qtdMatch = ultimo.match(/^[0-9]+/);
+          var qtd = qtdMatch ? parseFloat(qtdMatch[0]) : 0;
+          if (qtd > 0) {
+            newData[cod] = (newData[cod] || 0) + qtd;
+          }
+        }
+      }
+
+      sheetsData = newData;
+      var count = Object.keys(newData).length;
+      var msg = count + ' produto(s) ja comprado(s)';
+      if (ignorados > 0) msg += ' | ' + ignorados + ' pedido(s) ignorado(s) (chegou)';
+      setStatus(msg, count > 0 ? 'ok' : 'loading');
+      sheetsMsg = {msg:msg, type:count > 0 ? 'ok' : 'loading'};
+      saveState();
+      if (tasks.length > 0) render();
+    } catch(err) {
+      setStatus('Erro: ' + err.message, 'err');
+    }
+  };
+  reader.readAsText(file, 'utf-8');
+}
+
+function getJaComprado(codigo) {
+  if (!codigo) return 0;
+  return sheetsData[codigo.trim()] || 0;
+}
+
+// =====================================================================
+//  DADOS TEMPORARIOS DO CICLO DE COMPRAS
+//  raw    = linhas da planilha importada (quantidade original, nunca somada)
+//  tstate = estado por fornecedor no ciclo {an: analisado, checked:{chave:true}}
+//  tasks  = listas por fornecedor, sempre DERIVADAS de raw + cadastro
+// =====================================================================
+var raw = [], tasks = [], tstate = {}, fm = 'todos', exp = {};
+var nRaw = 0, importDate = '', sheetsMsg = {msg:'',type:''};
+
+var NOME_USUARIO = '';
+
+function todayISO() {
+  var d = new Date();
+  var m = d.getMonth()+1, dd = d.getDate();
+  return d.getFullYear()+'-'+(m<10?'0':'')+m+'-'+(dd<10?'0':'')+dd;
+}
+
+function fmtISO(iso) {
+  var p = (iso||'').split('-');
+  return p.length===3 ? p[2]+'/'+p[1]+'/'+p[0] : iso;
+}
+
+function esc(s) { return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function encK(k) { return encodeURIComponent(k).replace(/'/g, '%27'); }
+function normNome(s) { return String(s||'').trim().replace(/\s+/g,' '); }
+function joinPt(arr) {
+  if (arr.length <= 1) return arr.join('');
+  return arr.slice(0,-1).join(', ') + ' e ' + arr[arr.length-1];
+}
+function toast(msg) {
+  var el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('on');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(function(){ el.classList.remove('on'); }, 4500);
+}
+
+// =====================================================================
+//  CADASTRO PERMANENTE (produtos x fornecedores)
+//  Gravado no Supabase (colecoes fornecedor/produto). NAO e apagado ao
+//  importar planilha nem ao limpar o ciclo atual.
+// =====================================================================
+var LAST_EXPORT_KEY = 'sr_compras_ultimo_backup';
+var cad = {fornecedores:{}, produtos:{}};
+
+function sanitizeCad() {
+  Object.keys(cad.fornecedores).forEach(function(id){
+    var f = cad.fornecedores[id];
+    if (!f || !normNome(f.nome)) { delete cad.fornecedores[id]; return; }
+    f.id = id; f.nome = normNome(f.nome); f.atacado = !!f.atacado;
+  });
+  Object.keys(cad.produtos).forEach(function(k){
+    var p = cad.produtos[k];
+    if (!p || typeof p !== 'object') { delete cad.produtos[k]; return; }
+    var seen = {};
+    p.fornecedores = (Array.isArray(p.fornecedores) ? p.fornecedores : []).filter(function(id){
+      if (!cad.fornecedores[id] || seen[id]) return false; seen[id] = 1; return true;
+    });
+    if (p.principal && p.fornecedores.indexOf(p.principal) < 0) p.principal = null;
+  });
+}
+
+
+function saveCad() {
+  sincronizar(['fornecedor','produto']);
+  return true;
+}
+
+function newId() { return 'f' + Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+function fornPorNome(nome) {
+  var n = normNome(nome).toLowerCase(), r = null;
+  Object.keys(cad.fornecedores).forEach(function(id){ if (!r && cad.fornecedores[id].nome.toLowerCase() === n) r = id; });
+  return r;
+}
+function fornNome(id) { return cad.fornecedores[id] ? cad.fornecedores[id].nome : ''; }
+function criarForn(nome, atacado) {
+  nome = normNome(nome);
+  if (!nome) return null;
+  var ex = fornPorNome(nome);
+  if (ex) return ex;
+  var id = newId();
+  cad.fornecedores[id] = {id:id, nome:nome, atacado:!!(atacado || nome.toLowerCase() === AT_NOME.toLowerCase()), criado:todayISO()};
+  return id;
+}
+function fornsOrdenados() {
+  return Object.keys(cad.fornecedores).sort(function(a,b){ return fornNome(a).localeCompare(fornNome(b)); });
+}
+
+// Chave do produto: codigo (preferencial) ou nome normalizado
+function itemKey(r) {
+  var c = (r.codigo || '').toString().trim();
+  return c ? c : 'N:' + (r.produto || '').toString().trim().toUpperCase();
+}
+
+// Busca o cadastro do produto. Se ele foi cadastrado sem codigo e agora
+// aparece com codigo, migra o cadastro (evita duplicidade).
+function prodCad(r) {
+  var k = itemKey(r);
+  var p = cad.produtos[k];
+  if (!p && (r.codigo || '').toString().trim()) {
+    var nk = 'N:' + (r.produto || '').toString().trim().toUpperCase();
+    if (cad.produtos[nk]) {
+      p = cad.produtos[k] = cad.produtos[nk];
+      delete cad.produtos[nk];
+      p.codigo = r.codigo.toString().trim();
+      saveCad();
+    }
+  }
+  return p;
+}
+function fornsDe(k) {
+  var p = cad.produtos[k];
+  return p ? p.fornecedores.filter(function(id){ return !!cad.fornecedores[id]; }) : [];
+}
+function ensureProd(k, info) {
+  var p = cad.produtos[k];
+  if (!p) {
+    p = cad.produtos[k] = {codigo:'', produto:'', marca:'', fornecedores:[], principal:null, criado:todayISO(), atualizado:todayISO()};
+  }
+  if (info) {
+    if (info.codigo) p.codigo = String(info.codigo).trim();
+    if (info.produto) p.produto = info.produto;
+    if (info.marca) p.marca = info.marca;
+  }
+  return p;
+}
+function vincularNome(k, nome, info) {
+  var fid = criarForn(nome);
+  if (!fid) return false;
+  var p = ensureProd(k, info);
+  if (p.fornecedores.indexOf(fid) < 0) p.fornecedores.push(fid);
+  p.atualizado = todayISO();
+  return true;
+}
+function rowDe(k) {
+  for (var i = 0; i < raw.length; i++) if (itemKey(raw[i]) === k) return raw[i];
+  return null;
+}
+function infoDe(k) {
+  var r = rowDe(k), p = cad.produtos[k];
+  return {
+    produto:(r && r.produto) || (p && p.produto) || '',
+    codigo:(r && (r.codigo||'').toString().trim()) || (p && p.codigo) || (k.indexOf('N:')===0 ? '' : k),
+    marca:(r && r.marca) || (p && p.marca) || '',
+    r:r
+  };
+}
+
+// ===== VENDA EXTRAORDINARIA / DESCONTINUADA / COMPRADOS =====
+// Extras e descontinuados valem para todas as importacoes futuras.
+// Comprados pertencem ao ciclo atual (esvaziados ao importar novo CSV).
+var extras = {};
+var descs = {};
+var buys = {};
+
+function isExtra(r) { var k = itemKey(r); return !!extras[k] || !!descs[k] || !!buys[k]; }
+function vtItem(r) { return isExtra(r) ? 0 : r.qtd * r.custo; }
+function recalcVt(t) {
+  var v = 0;
+  t.produtos.forEach(function(r){ v += vtItem(r); });
+  t.vt = v;
+}
+function saveExtras() { sincronizar(['extra']); }
+function saveDescs() { sincronizar(['desc']); }
+function saveBuys() { sincronizar(['comprado']); }
+function nAtivos(t) {
+  var n = 0;
+  t.produtos.forEach(function(r){ if (!isExtra(r)) n++; });
+  return n;
+}
+function tasksAtivas() { return tasks.filter(function(t){ return nAtivos(t) > 0; }); }
+// Produtos unicos ativos (um produto em 3 fornecedores conta 1 vez)
+function produtosUnicosAtivos(lista) {
+  var s = {};
+  (lista || tasks).forEach(function(t){ t.produtos.forEach(function(r){ if (!isExtra(r)) s[itemKey(r)] = 1; }); });
+  return Object.keys(s).length;
+}
+function refreshDerived() {
+  tasks.forEach(recalcVt);
+  var n = 0;
+  tasks.forEach(function(t){ if (t.isAt || t.isSem) return; if (nAtivos(t) > 0) { n++; t.pr = n; } });
+}
+function taskById(id) { for (var i = 0; i < tasks.length; i++) if (tasks[i].id === id) return tasks[i]; return null; }
+function ts(id) { return tstate[id] || (tstate[id] = {an:false, checked:{}}); }
+
+function nomesCompradoEm(b) {
+  return ((b && b.compradoEm) || []).map(function(x){ return fornNome(x.id) || x.nome; }).filter(Boolean);
+}
+
+function mkExBtn(r, fid) {
+  var k = encK(itemKey(r));
+  return '<span class="exg"><button class="exbtn ex-buy" title="Ja comprado: sai de todas as listas e vai para a aba Comprados (registra este fornecedor como local da compra)" onclick="togBuy(\''+k+'\',event,\''+(fid||'')+'\')">Comprado</button> <button class="exbtn" title="Enviar para a aba Vendas extraordinarias (nao precisa comprar)" onclick="togExtra(\''+k+'\',event)">Venda extraord.</button> <button class="exbtn" title="Enviar para a aba Vendas descontinuadas (produto descontinuado)" onclick="togDesc(\''+k+'\',event)">Descontinuado</button> <button class="exbtn ex-forn" title="Ver e editar os fornecedores deste produto" onclick="abrirProd(\''+k+'\',event)">Fornecedores</button></span>';
+}
+
+function marcar(k, store, others, extra) {
+  if (store[k]) {
+    delete store[k];
+  } else {
+    var info = {produto:'', codigo:'', marca:'', marcado:todayISO()};
+    var r = rowDe(k);
+    if (r) { info.produto = r.produto; info.codigo = (r.codigo||'').toString().trim(); info.marca = r.marca; }
+    if (extra) Object.keys(extra).forEach(function(x){ info[x] = extra[x]; });
+    store[k] = info;
+    others.forEach(function(o){ delete o[k]; });
+  }
+  atualizarTudo();
+}
+function atualizarTudo() {
+  saveExtras(); saveDescs(); saveBuys();
+  refreshDerived();
+  saveState();
+  if (tasks.length) showGreet();
+  updSum(); render(); renderExtra(); renderDesc(); renderBuy();
+  if (view === 'cad') renderCad();
+}
+function togExtra(k, ev) { ev.stopPropagation(); marcar(decodeURIComponent(k), extras, [descs, buys]); }
+function togDesc(k, ev) { ev.stopPropagation(); marcar(decodeURIComponent(k), descs, [extras, buys]); }
+
+// Comprado: status unico por produto, compartilhado por todas as listas.
+function togBuy(k, ev, fid) {
+  if (ev) ev.stopPropagation();
+  k = decodeURIComponent(k);
+  if (buys[k]) {
+    var nm = nomesCompradoEm(buys[k]);
+    if (nm.length > 1 && !confirm('Desmarcar a compra deste produto em todas as listas?\n\nRegistrado como comprado em: ' + joinPt(nm) + '.')) return;
+    marcar(k, buys, [extras, descs]);
+    return;
+  }
+  var ce = (fid && cad.fornecedores[fid]) ? [{id:fid, nome:fornNome(fid)}] : [];
+  marcar(k, buys, [extras, descs], {compradoEm:ce});
+  if (ce.length) {
+    var outros = fornsDe(k).filter(function(x){ return x !== fid; }).map(fornNome);
+    if (outros.length) toast('Comprado em ' + ce[0].nome + '. O item foi sinalizado como ja comprado tambem na(s) lista(s) de ' + joinPt(outros) + '.');
+  }
+}
+// Compra dividida: registra mais um fornecedor para a mesma compra
+function compTambem(ek, fid, ev) {
+  ev.stopPropagation();
+  var k = decodeURIComponent(ek), b = buys[k];
+  if (!b || !cad.fornecedores[fid]) return;
+  b.compradoEm = b.compradoEm || [];
+  if (b.compradoEm.some(function(x){ return x.id === fid; })) return;
+  var nm = nomesCompradoEm(b);
+  if (nm.length) {
+    var r = rowDe(k), qt = '';
+    if (r) { var cv = convQtd(r.qtd, r.vol); qt = '\nQuantidade sugerida (unica, nao somada): ' + cv.q + ' ' + cv.un + '.'; }
+    if (!confirm('"' + (b.produto || k) + '" ja foi marcado como comprado em ' + joinPt(nm) + '.\n\nRegistrar que parte da compra tambem foi feita em ' + fornNome(fid) + ' (compra dividida)?' + qt)) return;
+  }
+  b.compradoEm.push({id:fid, nome:fornNome(fid)});
+  atualizarTudo();
+}
+function desfCompra(ek, fid, ev) {
+  ev.stopPropagation();
+  var k = decodeURIComponent(ek), b = buys[k];
+  if (!b) return;
+  b.compradoEm = (b.compradoEm || []).filter(function(x){ return x.id !== fid; });
+  if (!b.compradoEm.length) delete buys[k]; // volta para todas as listas
+  atualizarTudo();
+}
+
+// ===== ABAS =====
+var view = 'compras';
+
+function nSemForn() {
+  var t = taskById('__SEM__');
+  if (!t) return 0;
+  var s = {};
+  t.produtos.forEach(function(r){ if (!isExtra(r)) s[itemKey(r)] = 1; });
+  return Object.keys(s).length;
+}
+
+function updTab() {
+  var el = document.getElementById('tab-n');
+  if (el) el.textContent = Object.keys(extras).length;
+  var ed = document.getElementById('tab-nd');
+  if (ed) ed.textContent = Object.keys(descs).length;
+  var eb = document.getElementById('tab-nb');
+  if (eb) eb.textContent = Object.keys(buys).length;
+  var ec = document.getElementById('tab-nc');
+  if (ec) ec.textContent = nSemForn();
+}
+
+function setView(v, nosave) {
+  if (['extra','desc','buy','cad'].indexOf(v) < 0) v = 'compras';
+  view = v;
+  ['compras','extra','desc','buy','cad'].forEach(function(x){
+    document.getElementById('view-'+x).style.display = v===x ? '' : 'none';
+    document.getElementById('tab-'+x).classList.toggle('active', v===x);
+  });
+  if (v === 'extra') renderExtra();
+  if (v === 'desc') renderDesc();
+  if (v === 'buy') renderBuy();
+  if (v === 'cad') renderCad();
+  updTab();
+  if (!nosave) saveState();
+}
+
+function renderLista(store, pre, fn, vazio, colExtra) {
+  updTab();
+  var el = document.getElementById(pre+'-list');
+  var sm = document.getElementById(pre+'-sum');
+  if (!el) return;
+  var qEl = document.getElementById(pre+'-q');
+  var q = ((qEl && qEl.value) || '').toLowerCase().trim();
+  var atuais = {};
+  raw.forEach(function(r){ atuais[itemKey(r)] = r; });
+  var total = Object.keys(store).length;
+  var itens = Object.keys(store).map(function(k){
+    var e = store[k], r = atuais[k];
+    var cod = e.codigo !== undefined ? e.codigo : (k.indexOf('N:') === 0 ? '' : k);
+    return {k:k, e:e, produto:e.produto||(r&&r.produto)||'', codigo:cod||(r&&r.codigo)||'', marca:e.marca||(r&&r.marca)||'', marcado:e.marcado||'', r:r};
+  });
+  var naLista = itens.filter(function(i){ return i.r; }).length;
+  if (sm) sm.textContent = total + ' item(ns) marcado(s) - ' + naLista + ' na lista atual';
+  if (!total) { el.innerHTML = '<div class="empty">'+vazio+'</div>'; return; }
+  itens = itens.filter(function(i){
+    var extraTxt = colExtra ? colExtra.txt(i.e) : '';
+    return !q || (i.produto+' '+i.codigo+' '+i.marca+' '+extraTxt).toLowerCase().indexOf(q) >= 0;
+  });
+  itens.sort(function(a,b){ return a.produto.localeCompare(b.produto); });
+  if (!itens.length) { el.innerHTML = '<div class="empty">Nenhum resultado para a busca.</div>'; return; }
+  var h = '<div class="card"><table class="pt"><thead><tr><th>Produto</th><th>Codigo</th><th>Marca</th>'+(colExtra?'<th>'+colExtra.th+'</th>':'')+'<th>Marcado em</th><th>Na lista atual</th><th class="r"></th></tr></thead><tbody>';
+  itens.forEach(function(i){
+    var k = encK(i.k);
+    var atual = '<span style="color:var(--tx3)">-</span>';
+    if (i.r) { var cv = convQtd(i.r.qtd, i.r.vol); atual = '<span class="ex-tag">na lista: '+cv.q+' '+esc(cv.un)+'</span>'; }
+    h += '<tr><td class="td-n">'+esc(i.produto)+'</td><td class="mo">'+esc(i.codigo||'-')+'</td><td>'+esc(i.marca||'-')+'</td>'+(colExtra?'<td>'+colExtra.td(i.e)+'</td>':'')+'<td class="mo">'+(i.marcado?fmtISO(i.marcado):'-')+'</td><td>'+atual+'</td><td class="r"><button class="exbtn" onclick="'+fn+'(\''+k+'\',event)">Voltar para compras</button></td></tr>';
+  });
+  h += '</tbody></table></div>';
+  el.innerHTML = h;
+}
+function renderExtra() { renderLista(extras, 'extra', 'togExtra', 'Nenhuma venda extraordinaria marcada.<br>Use o botao "Venda extraord." nos produtos da aba Compras.'); }
+function renderBuy() {
+  renderLista(buys, 'buy', 'togBuy', 'Nenhum item comprado.<br>Use o botao "Comprado" nos produtos da aba Compras. Esta aba e esvaziada quando voce importa um novo CSV de sugestoes.', {
+    th:'Comprado em',
+    txt:function(e){ return nomesCompradoEm(e).join(' '); },
+    td:function(e){ var n = nomesCompradoEm(e); return n.length ? n.map(function(x){ return '<span class="chip">'+esc(x)+'</span>'; }).join('') : '<span style="color:var(--tx3)">nao informado</span>'; }
+  });
+}
+function renderDesc() { renderLista(descs, 'desc', 'togDesc', 'Nenhuma venda descontinuada marcada.<br>Use o botao "Descontinuado" nos produtos da aba Compras.'); }
+
+// ===== PERSISTENCIA DO CICLO (Supabase) + preferencias de tela (navegador) =====
+function saveState() {
+  salvarTela();
+  sincronizar(['estado','ciclo','sheets']);
+}
+
+function limparDados() {
+  if (!confirm('Limpar o ciclo de compras atual PARA TODOS os usuarios do SR Compras?\n\nSerao apagados: a lista importada, o progresso das listas, a aba Comprados e o CSV do Sheets.\n\nO cadastro de fornecedores e produtos e as marcacoes de Vendas extraordinarias e Descontinuadas NAO serao apagados.')) return;
+  raw=[];tstate={};buys={};exp={};sheetsData={};sheetsMsg={msg:'',type:''};importDate='';nRaw=0;
+  document.getElementById('sheets-status').style.display='none';
+  sincronizar(); salvarTela();
+  rebuild(); updSum(); render(); renderBuy();
+  document.getElementById('greet').textContent=''; document.getElementById('greet-sub').textContent='';
+  if (view==='cad') renderCad();
+  toast('Ciclo atual limpo.');
+}
+
+function syncFilterUI() {
+  document.querySelectorAll('.fi').forEach(function(b){
+    var on = (b.getAttribute('onclick')||'').indexOf("'"+fm+"'") >= 0;
+    b.classList.toggle('active', on);
+  });
+}
+
+function showGreet() {
+  var h = new Date().getHours();
+  var nm = NOME_USUARIO ? ', ' + NOME_USUARIO : '';
+  document.getElementById('greet').textContent = (h<12?'Bom dia':h<18?'Boa tarde':'Boa noite') + nm + '!';
+  var quando = (!importDate || importDate===todayISO()) ? 'Hoje voce tem ' : 'Lista de '+fmtISO(importDate)+': ';
+  var ativas = tasksAtivas().filter(function(t){ return !t.isSem; });
+  var np = produtosUnicosAtivos();
+  document.getElementById('greet-sub').textContent = quando+ativas.length+' fornecedores para cotar - '+np+' produtos no total.';
+}
+
+// ===== MONTAGEM DAS LISTAS POR FORNECEDOR =====
+function mkTask(id, nome, ex) {
+  return Object.assign({id:id, fornecedor:nome, produtos:[], isAt:false, isSem:false, isJR:false, vt:0, pr:0}, ex||{});
+}
+
+function buildTasks() {
+  var g = {};
+  var sem = mkTask('__SEM__', 'Produtos sem fornecedor cadastrado', {isSem:true});
+  raw.forEach(function(r){
+    prodCad(r);
+    var fs = fornsDe(itemKey(r));
+    if (!fs.length) { sem.produtos.push(r); return; }
+    // Mesmo produto em varias listas: a MESMA linha (mesma quantidade) e referenciada.
+    fs.forEach(function(fid){
+      if (!g[fid]) {
+        var f = cad.fornecedores[fid];
+        g[fid] = mkTask(fid, f.nome, {isAt:!!f.atacado, isJR:f.nome.toUpperCase() === 'JR'});
+      }
+      g[fid].produtos.push(r);
+    });
+  });
+  var all = Object.keys(g).map(function(k){ var t = g[k]; recalcVt(t); return t; });
+  var ats = all.filter(function(t){ return t.isAt; }).sort(function(a,b){ return a.fornecedor.localeCompare(b.fornecedor); });
+  var resto = all.filter(function(t){ return !t.isAt; }).sort(function(a,b){ return b.vt - a.vt; });
+  var res = ats.slice();
+  if (sem.produtos.length) res.push(sem);
+  return res.concat(resto);
+}
+function rebuild() { tasks = buildTasks(); refreshDerived(); }
+
+function getSt(t) {
+  return ts(t.id).an ? 'c' : 'p';
+}
+
+function updSum() {
+  var done=0,pend=0,and=0;
+  var ativas=tasksAtivas();
+  ativas.forEach(function(t){
+    var s=getSt(t);
+    if(s==='c') done++; else if(s==='a') and++; else pend++;
+  });
+  var pct=ativas.length?Math.round(done/ativas.length*100):0;
+  document.getElementById('s0').textContent=ativas.length;
+  document.getElementById('s1').textContent=produtosUnicosAtivos();
+  document.getElementById('s2').textContent=pend;
+  document.getElementById('s3').textContent=and;
+  document.getElementById('s4').textContent=done;
+  document.getElementById('prog-f').style.width=pct+'%';
+  document.getElementById('prog-pct').textContent=pct+'%';
+  document.getElementById('fc-t').textContent=ativas.length;
+  document.getElementById('fc-p').textContent=pend;
+  document.getElementById('fc-a').textContent=and;
+  document.getElementById('fc-d').textContent=done;
+  updTab();
+}
+
+function togStep(id,s,ev) {
+  ev.stopPropagation();
+  var st=ts(id);
+  if(s==='an'){st.an=!st.an;}
+  updSum();render();saveState();
+}
+
+function togChk(id,ek,ev) {
+  ev.stopPropagation();
+  var st=ts(id), k=decodeURIComponent(ek);
+  st.checked[k]=!st.checked[k];
+  var row=ev.target.closest ? ev.target.closest('.cbr') : null;
+  var cb=row ? row.querySelector('input[type=checkbox]') : null;
+  if(cb) cb.checked=!!st.checked[k];
+  saveState();
+}
+
+function togExp(id) {
+  exp[id]=!exp[id];
+  var b=document.getElementById('bd-'+id);
+  var c=document.getElementById('cv-'+id);
+  if(b) b.classList.toggle('open',exp[id]);
+  if(c) c.classList.toggle('open',exp[id]);
+  saveState();
+}
+
+function setFilter(mode,btn) {
+  fm=mode;
+  document.querySelectorAll('.fi').forEach(function(b){b.classList.remove('active');});
+  btn.classList.add('active');
+  render();
+  saveState();
+}
+
+function doCopy(txt,btn) {
+  var orig=btn.textContent;
+  function ok(){btn.textContent='Copiado!';btn.classList.add('copied');setTimeout(function(){btn.textContent=orig;btn.classList.remove('copied');},2000);}
+  if(navigator.clipboard){navigator.clipboard.writeText(txt).then(ok).catch(function(){fb(txt);ok();});}
+  else{fb(txt);ok();}
+}
+function fb(t){var el=document.createElement('textarea');el.value=t;document.body.appendChild(el);el.select();document.execCommand('copy');document.body.removeChild(el);}
+
+function linhaCopia(r) {
+  var jaC=getJaComprado(r.codigo);
+  var cv=convQtd(r.qtd,r.vol);
+  var qtdF=isExtra(r)?0:Math.max(0,cv.q-jaC);
+  return qtdF>0 ? (r.codigo?r.codigo+' | ':'')+r.produto+' | '+qtdF+' '+cv.un : null;
+}
+
+function cpLista(id,btn) {
+  var t=taskById(id); if(!t) return;
+  var ls=t.produtos.map(linhaCopia).filter(Boolean);
+  if(!ls.length){alert('Nenhum produto para comprar (ja comprados ou venda extraordinaria).');return;}
+  doCopy(ls.join('\n'),btn);
+}
+
+function cpSel(id,btn) {
+  var t=taskById(id); if(!t) return;
+  var st=ts(id);
+  var ls=t.produtos.filter(function(r){ return st.checked[itemKey(r)]; }).map(linhaCopia).filter(Boolean);
+  if(!ls.length){alert('Selecione pelo menos um produto!');return;}
+  doCopy(ls.join('\n'),btn);
+}
+
+function jrSecao(t,tipo) {
+  return t.produtos.filter(function(r){
+    var v = r.produto.toUpperCase().indexOf('VIRGEM') >= 0;
+    return tipo==='virgem' ? v : !v;
+  });
+}
+function cpSec(id,tipo,btn) {
+  var t=taskById(id); if(!t) return;
+  var ls=jrSecao(t,tipo).map(linhaCopia).filter(Boolean);
+  if(!ls.length){alert('Nenhum produto para comprar nesta secao.');return;}
+  doCopy(ls.join('\n'),btn);
+}
+
+// Aviso de fornecedores alternativos (mesmo produto, mesma necessidade)
+function altAviso(k, fid) {
+  var fs = fornsDe(k);
+  var outros = fs.filter(function(x){ return x !== fid; });
+  if (!outros.length) return '';
+  var p = cad.produtos[k] || {};
+  var nomes = outros.map(function(x){ return esc(fornNome(x)) + (p.principal === x ? ' (fornecedor de referencia)' : ''); });
+  return '<div class="alt" title="Mesmo produto e mesma necessidade de estoque: a quantidade sugerida nao e somada entre os fornecedores."><span class="alt-ic">&#8644;</span><span>Este produto tambem esta disponivel em '+joinPt(nomes)+'. Confira os precos e evite comprar em duplicidade.</span></div>';
+}
+function refTag(k, fid) {
+  var p = cad.produtos[k];
+  return (p && p.principal === fid && fornsDe(k).length > 1) ? '<span class="ref-tag" title="Referencia nao significa melhor preco nem compra obrigatoria">Fornecedor de referencia</span>' : '';
+}
+function codTag(r) {
+  var c = (r.codigo||'').toString().trim();
+  return c ? '<span class="mini-cod">Cod. '+esc(c)+'</span>' : '';
+}
+
+function mkTabela(prods, fid) {
+  var h='<table class="pt"><thead><tr><th>Produto</th><th class="r">Saldo</th><th class="r">Est Min</th><th class="r">Sugerido</th><th class="r">Ja Comprado</th><th class="r">Comprar</th><th class="r">Vl Ult Compra</th><th class="r"></th></tr></thead><tbody>';
+  prods.filter(function(r){return !isExtra(r);}).forEach(function(r){
+    var k=itemKey(r);
+    var cv=convQtd(r.qtd,r.vol);
+    var jaC=getJaComprado(r.codigo);
+    var qtdF=Math.max(0,cv.q-jaC);
+    var zt=r.saldo===0?'<span class="zt">zerado</span>':'';
+    var em=r.emin>0?Math.round(r.emin):'-';
+    var qt=cv.q+' '+esc(cv.un);
+    if(cv.fa>0) qt+=' <span class="mi">(x'+cv.fa+'='+cv.tot+' un)</span>';
+    var jaTag=jaC>0?'<span class="jc-tag">'+jaC+' '+esc(cv.un)+'</span>':'<span style="color:var(--tx3)">-</span>';
+    var cmpTag=qtdF>0?('<strong>'+qtdF+' '+esc(cv.un)+'</strong>'):'<span style="color:var(--gn)">OK</span>';
+    h+='<tr><td class="td-n">'+esc(r.produto)+zt+refTag(k,fid)+codTag(r)+altAviso(k,fid)+'</td><td class="mo r">'+Math.round(r.saldo)+'</td><td class="mo r">'+em+'</td><td class="mo r">'+qt+'</td><td class="r">'+jaTag+'</td><td class="r">'+cmpTag+'</td><td class="mo r">'+(r.custo>0?fmtR(r.custo):'-')+'</td><td class="r">'+mkExBtn(r,fid)+'</td></tr>';
+  });
+  h+='</tbody></table>';
+  return h;
+}
+
+// Lista "Produtos sem fornecedor cadastrado", agrupada pela sugestao da marca
+var SEMG = [];
+function mkSem(t, rows) {
+  var grupos = {}, ordem = [];
+  rows.forEach(function(r){
+    var s = sugestao(r);
+    if (!grupos[s]) { grupos[s] = []; ordem.push(s); }
+    grupos[s].push(r);
+  });
+  ordem.sort(function(a,b){ if(!a) return 1; if(!b) return -1; return a.localeCompare(b); });
+  SEMG = ordem;
+  var sel = semSel(), nSel = sel.length, nTot = semKeys().length;
+  var h = '<div class="sem-help">Estes produtos ainda nao tem fornecedor cadastrado. Vincule pela sugestao (baseada na marca, como no sistema anterior), clique em <b>Escolher fornecedores</b> ou <b>marque varios itens</b> e vincule todos de uma vez a um ou mais fornecedores. O vinculo fica salvo e e reconhecido automaticamente nas proximas importacoes.</div>';
+  h += '<div class="sel-bar'+(nSel?' on':'')+'" onclick="event.stopPropagation()"><label class="ck"><input type="checkbox" '+(nSel&&nSel===nTot?'checked':'')+' onclick="semChkTodos(event)"> Selecionar todos ('+nTot+')</label><span class="sel-n">'+(nSel?nSel+' selecionado(s)':'Nenhum item selecionado')+'</span><span class="sel-acts">'+(nSel?'<button class="btn btn-sm" onclick="semLimparSel(event)">Limpar selecao</button> ':'')+'<button class="btn btn-pri btn-sm" '+(nSel?'':'disabled')+' onclick="abrirLote(event)">Vincular selecionados a fornecedores...</button></span></div>';
+  ordem.forEach(function(s, gi){
+    var lista = grupos[s];
+    var novo = s && !fornPorNome(s) ? ' <span class="mi">(fornecedor novo - sera cadastrado)</span>' : '';
+    h += '<div class="jr-s"><div class="jr-sh"><span class="jr-st">'+(s?'Sugestao: '+esc(s)+novo:'Sem sugestao (marca nao informada ou desconhecida)')+' - '+lista.length+' produto(s)</span>';
+    if (s) h += '<button class="cpbtn" style="margin-left:0" onclick="vincGrupo('+gi+',event)">Vincular os '+lista.length+' a '+esc(s)+'</button>';
+    var gSel = lista.filter(function(r){ return semChecked(itemKey(r)); }).length;
+    h += '</div><table class="pt"><thead><tr><th class="ckc"><input type="checkbox" title="Selecionar os itens deste grupo" '+(gSel&&gSel===lista.length?'checked':'')+' onclick="semChkGrupo('+gi+',event)"></th><th>Produto</th><th>Marca</th><th class="r">Sugerido</th><th class="r">Comprar</th><th class="r"></th></tr></thead><tbody>';
+    lista.forEach(function(r){
+      var k = encK(itemKey(r));
+      var cv = convQtd(r.qtd, r.vol);
+      var qtdF = Math.max(0, cv.q - getJaComprado(r.codigo));
+      var zt=r.saldo===0?'<span class="zt">zerado</span>':'';
+      var bt = s ? '<button class="exbtn ex-link" onclick="vincRow(\''+k+'\',event)">Vincular a '+esc(s)+'</button> ' : '';
+      var on = semChecked(itemKey(r));
+      h += '<tr class="'+(on?'sel-on':'')+'" onclick="semChk(\''+k+'\',event)"><td class="ckc"><input type="checkbox" '+(on?'checked':'')+' onclick="semChk(\''+k+'\',event)"></td><td class="td-n">'+esc(r.produto)+zt+codTag(r)+'</td><td>'+esc(r.marca||'-')+'</td><td class="mo r">'+cv.q+' '+esc(cv.un)+'</td><td class="r">'+(qtdF>0?'<strong>'+qtdF+' '+esc(cv.un)+'</strong>':'<span style="color:var(--gn)">OK</span>')+'</td><td class="r"><span class="exg">'+bt+'<button class="exbtn ex-forn" onclick="abrirProd(\''+k+'\',event)">Escolher fornecedores</button></span> '+mkExBtn(r,'__SEM__')+'</td></tr>';
+    });
+    h += '</tbody></table></div>';
+  });
+  return h;
+}
+// ===== Selecao multipla na lista sem fornecedor =====
+// Guardada no estado do ciclo (tstate.__SEM__.checked), sobrevive a recarregar a pagina.
+function semKeys() {
+  var t = taskById('__SEM__'), seen = {}, ks = [];
+  if (!t) return ks;
+  t.produtos.forEach(function(r){ var k = itemKey(r); if (!seen[k] && !isExtra(r)) { seen[k] = 1; ks.push(k); } });
+  return ks;
+}
+function semChecked(k) { return !!ts('__SEM__').checked[k]; }
+function semSel() { return semKeys().filter(semChecked); }
+function semRefresh() { saveState(); render(); }
+function semChk(ek, ev) {
+  ev.stopPropagation();
+  var k = decodeURIComponent(ek), c = ts('__SEM__').checked;
+  if (c[k]) delete c[k]; else c[k] = true;
+  semRefresh();
+}
+function semChkGrupo(gi, ev) {
+  ev.stopPropagation();
+  var nome = SEMG[gi], t = taskById('__SEM__');
+  if (!t) return;
+  var ks = semKeys().filter(function(k){ var r = rowDe(k); return r && sugestao(r) === nome; });
+  var c = ts('__SEM__').checked;
+  var todos = ks.length && ks.every(function(k){ return c[k]; });
+  ks.forEach(function(k){ if (todos) delete c[k]; else c[k] = true; });
+  semRefresh();
+}
+function semChkTodos(ev) {
+  ev.stopPropagation();
+  var ks = semKeys(), c = ts('__SEM__').checked;
+  var todos = ks.length && ks.every(function(k){ return c[k]; });
+  ts('__SEM__').checked = {};
+  if (!todos) ks.forEach(function(k){ ts('__SEM__').checked[k] = true; });
+  semRefresh();
+}
+function semLimparSel(ev) {
+  ev.stopPropagation();
+  ts('__SEM__').checked = {};
+  semRefresh();
+}
+function abrirLote(ev) {
+  if (ev) ev.stopPropagation();
+  var ks = semSel();
+  if (!ks.length) { alert('Marque pelo menos um produto.'); return; }
+  MS = {lote:true, keys:ks, sel:{}, principal:null, q:''};
+  renderModal();
+}
+
+function vincRow(ek, ev) {
+  ev.stopPropagation();
+  var k = decodeURIComponent(ek), r = rowDe(k);
+  if (!r) return;
+  var s = sugestao(r);
+  if (!s) return;
+  vincularNome(k, s, {codigo:r.codigo, produto:r.produto, marca:r.marca});
+  saveCad();
+  afterCadChange();
+  toast('"' + r.produto + '" vinculado a ' + s + '.');
+}
+function semRowsPorSug(nome) {
+  var t = taskById('__SEM__');
+  if (!t) return [];
+  var seen = {};
+  return t.produtos.filter(function(r){
+    var k = itemKey(r);
+    if (seen[k] || isExtra(r) || sugestao(r) !== nome) return false;
+    seen[k] = 1; return true;
+  });
+}
+function vincGrupo(gi, ev) {
+  ev.stopPropagation();
+  var nome = SEMG[gi];
+  if (!nome) return;
+  var rows = semRowsPorSug(nome);
+  if (!rows.length) return;
+  if (!confirm('Vincular ' + rows.length + ' produto(s) ao fornecedor "' + nome + '"?' + (fornPorNome(nome) ? '' : '\n\nO fornecedor sera cadastrado.') + '\n\nVoce pode alterar depois pelo botao "Fornecedores" ou pela aba Cadastro.')) return;
+  rows.forEach(function(r){ vincularNome(itemKey(r), nome, {codigo:r.codigo, produto:r.produto, marca:r.marca}); });
+  saveCad();
+  afterCadChange();
+}
+function vincTodas(ev) {
+  ev.stopPropagation();
+  var t = taskById('__SEM__');
+  if (!t) return;
+  var nomes = {}, total = 0;
+  t.produtos.forEach(function(r){ if (isExtra(r)) return; var s = sugestao(r); if (s) { nomes[s] = (nomes[s]||0) + 1; total++; } });
+  var ks = Object.keys(nomes).sort();
+  if (!ks.length) { alert('Nenhum produto desta lista tem sugestao de fornecedor. Use "Escolher fornecedores".'); return; }
+  var resumo = ks.map(function(n){ return '- ' + n + ': ' + nomes[n] + ' produto(s)' + (fornPorNome(n) ? '' : ' (novo)'); }).join('\n');
+  if (!confirm('Vincular ' + total + ' produto(s) pelos fornecedores sugeridos?\n\n' + resumo + '\n\nProdutos sem sugestao continuam na lista para vinculo manual.')) return;
+  ks.forEach(function(n){ semRowsPorSug(n).forEach(function(r){ vincularNome(itemKey(r), n, {codigo:r.codigo, produto:r.produto, marca:r.marca}); }); });
+  saveCad();
+  afterCadChange();
+}
+
+// Itens ja comprados que pertencem a esta lista (sinaliza duplicidade)
+function mkBought(t) {
+  var seen = {}, itens = [];
+  t.produtos.forEach(function(r){ var k = itemKey(r); if (seen[k] || !buys[k]) return; seen[k] = 1; itens.push(r); });
+  if (!itens.length) return '';
+  var fid = t.id, nOutros = 0, h = '';
+  itens.forEach(function(r){
+    var k = itemKey(r), ek = encK(k), b = buys[k];
+    var ce = b.compradoEm || [];
+    var aqui = ce.some(function(x){ return x.id === fid; });
+    var outros = ce.filter(function(x){ return x.id !== fid; }).map(function(x){ return fornNome(x.id) || x.nome; });
+    var cv = convQtd(r.qtd, r.vol);
+    var st, bt = '';
+    if (aqui) {
+      st = '<span class="jc-tag">Comprado aqui</span>' + (outros.length ? ' <span class="mi">compra dividida com '+esc(joinPt(outros))+'</span>' : '');
+      bt = '<button class="exbtn" onclick="desfCompra(\''+ek+'\',\''+fid+'\',event)">Desfazer aqui</button>';
+    } else if (outros.length) {
+      nOutros++;
+      st = '<span class="warn-tag">Ja comprado em '+esc(joinPt(outros))+'</span> <span class="mi">mesmo produto - nao e uma nova necessidade</span>';
+      if (!t.isSem) bt = '<button class="exbtn" title="Use apenas se a compra foi realmente dividida entre fornecedores" onclick="compTambem(\''+ek+'\',\''+fid+'\',event)">Comprar tambem aqui (dividir)</button>';
+    } else {
+      st = '<span class="jc-tag">Comprado</span> <span class="mi">fornecedor nao informado</span>';
+      if (!t.isSem) bt = '<button class="exbtn" onclick="compTambem(\''+ek+'\',\''+fid+'\',event)">Registrar como comprado aqui</button>';
+    }
+    bt += ' <button class="exbtn" onclick="togBuy(\''+ek+'\',event)">Voltar para compras</button>';
+    h += '<div class="bt-row"><span class="bt-nm">'+esc(r.produto)+codTag(r)+'</span><span class="mo">'+cv.q+' '+esc(cv.un)+'</span><span class="bt-st">'+st+'</span><span class="exg">'+bt+'</span></div>';
+  });
+  var sum = 'Comprados neste ciclo ('+itens.length+')' + (nOutros ? ' <span class="bt-warn">- '+nOutros+' ja comprado(s) em outro fornecedor</span>' : '');
+  return '<details class="bought"'+(nOutros?' open':'')+' onclick="event.stopPropagation()"><summary>'+sum+'</summary>'+h+'</details>';
+}
+
+function mkSteps(t) {
+  var id=t.id, s='';
+  s+='<button class="sb '+(ts(id).an?'on-an':'')+'" onclick="togStep(\''+id+'\',\'an\',event)"><span class="sd"></span>Analisado - sem necessidade de compra</button>';
+  if(t.isSem) s+='<button class="sb" onclick="vincTodas(event)">Vincular todos pelas sugestoes</button>';
+  if(t.isAt) s+='<button class="cpsel" onclick="cpSel(\''+id+'\',this);event.stopPropagation()">Copiar selecionados</button>';
+  else if(!t.isJR) s+='<button class="cpbtn" onclick="cpLista(\''+id+'\',this);event.stopPropagation()">Copiar lista</button>';
+  return '<div class="cs">'+s+'</div>';
+}
+
+function compradoEmOutro(t) {
+  if (t.isSem) return false;
+  return t.produtos.some(function(r){
+    var b = buys[itemKey(r)];
+    return b && (b.compradoEm||[]).length && !(b.compradoEm||[]).some(function(x){ return x.id === t.id; });
+  });
+}
+function matchR(r,q){ return (r.produto+' '+(r.codigo||'')+' '+r.marca).toLowerCase().indexOf(q)>=0; }
+
+function render() {
+  var el=document.getElementById('tlist');
+  updTab();
+  if(!raw.length){el.innerHTML='<div class="empty">Importe a planilha de sugestoes de compra para montar as listas por fornecedor.</div>';return;}
+  var qEl=document.getElementById('comp-q');
+  var q=((qEl&&qEl.value)||'').toLowerCase().trim();
+  var vis=tasks.filter(function(t){
+    // Lista sem itens ativos so aparece (em "Todos") se tiver item comprado em OUTRO fornecedor,
+    // para que o aviso de compra ja realizada nao fique escondido.
+    if(nAtivos(t)===0) return fm==='todos' && !q && compradoEmOutro(t);
+    var s=getSt(t);
+    if(fm==='pendente' && s!=='p') return false;
+    if(fm==='andamento' && s!=='a') return false;
+    if(fm==='concluido' && s!=='c') return false;
+    if(q){
+      var nh=t.fornecedor.toLowerCase().indexOf(q)>=0;
+      if(!nh && !t.produtos.some(function(r){return !isExtra(r)&&matchR(r,q);})) return false;
+    }
+    return true;
+  });
+  var html='';
+  var ns=nSemForn();
+  if(ns>0) html+='<div class="notice"><span><b>'+ns+' produto(s) sem fornecedor cadastrado.</b> Vincule na lista "Produtos sem fornecedor cadastrado" abaixo ou pela aba Cadastro.</span></div>';
+  if(!vis.length){el.innerHTML=html+'<div class="empty">Nenhuma tarefa neste filtro</div>';return;}
+  vis.forEach(function(t){
+    var id=t.id;
+    var isExp=exp[id]||false;
+    var isDone=getSt(t)==='c';
+    var nh=q && t.fornecedor.toLowerCase().indexOf(q)>=0;
+    var rows=t.produtos.filter(function(r){ return !q || nh || matchR(r,q); });
+    var pCls,pLbl;
+    if(t.isAt){pCls='p-at';pLbl='AT';}
+    else if(t.isSem){pCls='p-ni';pLbl='!';}
+    else{pLbl=t.pr+'º';pCls=t.pr===1?'p-1':t.pr===2?'p-2':t.pr===3?'p-3':'p-n';}
+    var val=t.vt>0?' - '+fmtR(t.vt):'';
+    var nMulti=0;
+    if(!t.isSem) t.produtos.forEach(function(r){ if(!isExtra(r) && fornsDe(itemKey(r)).length>1) nMulti++; });
+    var multi=nMulti?' - <span style="color:var(--am)">'+nMulti+' tambem em outro(s) fornecedor(es)</span>':'';
+    var cCls='card'+(isDone?' done':'')+(t.isAt?' at-c':'')+(t.isSem?' ni-c':'');
+    var atTag=t.isAt?'<span class="at-tag">cotacao de atacado</span>':'';
+    var body='';
+    if(t.isSem){
+      body=mkSem(t, rows.filter(function(r){return !isExtra(r);}));
+    } else if(t.isAt){
+      var st=ts(id);
+      rows.forEach(function(r){
+        if(isExtra(r)) return;
+        var k=itemKey(r), ek=encK(k);
+        var cv=convQtd(r.qtd,r.vol);
+        var jaC=getJaComprado(r.codigo);
+        var qtdF=Math.max(0,cv.q-jaC);
+        var zt=r.saldo===0?'<span class="zt">zerado</span>':'';
+        var qtTxt=qtdF>0?(qtdF+' '+esc(cv.un)):'OK';
+        if(jaC>0&&qtdF>0) qtTxt+=' <span style="font-size:10px;color:var(--tx3)">('+jaC+' ja comprado)</span>';
+        var chk=st.checked[k]?'checked':'';
+        body+='<div class="cbr" onclick="togChk(\''+id+'\',\''+ek+'\',event)"><input type="checkbox" '+chk+' onclick="togChk(\''+id+'\',\''+ek+'\',event)"><span class="cb-nm"><span>'+esc(r.produto)+zt+refTag(k,id)+'</span>'+codTag(r)+altAviso(k,id)+'</span>'+mkExBtn(r,id)+'<span class="cb-qt">'+qtTxt+'</span></div>';
+      });
+    } else if(t.isJR){
+      ['virgem','comum'].forEach(function(tp){
+        var sec=jrSecao({produtos:rows},tp);
+        if(sec.some(function(r){return !isExtra(r);})) body+='<div class="jr-s"><div class="jr-sh"><span class="jr-st">'+(tp==='virgem'?'Virgem':'Comum')+'</span><button class="cpbtn" onclick="cpSec(\''+id+'\',\''+tp+'\',this);event.stopPropagation()">Copiar</button></div>'+mkTabela(sec,id)+'</div>';
+      });
+    } else if(rows.some(function(r){return !isExtra(r);})) {
+      body=mkTabela(rows,id);
+    }
+    body+=mkBought(t);
+    html+='<div class="'+cCls+'"><div class="ch" onclick="togExp(\''+id+'\')"><div class="pn '+pCls+'">'+pLbl+'</div><div class="ci"><div class="cn">'+esc(t.fornecedor)+atTag+'</div><div class="cm">'+nAtivos(t)+' produto(s)'+val+multi+'</div></div><div class="cbdg"></div><span class="chv '+(isExp?'open':'')+'" id="cv-'+id+'">&#9658;</span></div><div class="cb2 '+(isExp?'open':'')+'" id="bd-'+id+'">'+body+mkSteps(t)+'</div></div>';
+  });
+  el.innerHTML=html;
+}
+
+function afterCadChange() {
+  rebuild();
+  saveState();
+  if (raw.length) showGreet();
+  updSum(); render();
+  if (view === 'cad') renderCad();
+  if (view === 'buy') renderBuy();
+}
+
+// =====================================================================
+//  MODAL: fornecedores de um produto
+// =====================================================================
+var MS = null;
+function abrirModal(html) {
+  document.getElementById('mdl').innerHTML = html;
+  document.getElementById('mbg').style.display = 'flex';
+}
+function fecharModal() { document.getElementById('mbg').style.display = 'none'; MS = null; }
+document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && document.getElementById('mbg').style.display !== 'none') fecharModal(); });
+
+function abrirProd(ek, ev) {
+  if (ev) ev.stopPropagation();
+  var k = decodeURIComponent(ek);
+  var inf = infoDe(k), p = cad.produtos[k], sel = {};
+  if (p) p.fornecedores.forEach(function(id){ if (cad.fornecedores[id]) sel[id] = true; });
+  MS = {k:k, novo:false, info:inf, sel:sel, principal:(p && p.principal && sel[p.principal]) ? p.principal : null, q:''};
+  renderModal();
+}
+function novoProduto() {
+  MS = {k:null, novo:true, info:{produto:'', codigo:'', marca:''}, sel:{}, principal:null, q:''};
+  renderModal();
+}
+function renderModal() {
+  var m = MS, inf = m.info, h = '';
+  if (m.lote) {
+    var nomes = m.keys.map(function(k){ var r = rowDe(k); return (r && r.produto) || k; });
+    var prev = nomes.slice(0, 8).map(function(n){ return '<span class="chip">'+esc(n)+'</span>'; }).join('') + (nomes.length > 8 ? ' <span class="mi">e mais '+(nomes.length-8)+'</span>' : '');
+    h += '<div class="mdl-h"><div class="mdl-t">Vincular '+m.keys.length+' produto(s)</div><div class="mdl-s">Todos os produtos selecionados serao vinculados a cada fornecedor marcado abaixo.</div></div><div class="mdl-b">';
+    h += '<div class="mdl-lb">Produtos selecionados</div><div style="margin-bottom:4px">'+prev+'</div>';
+    h += '<div class="mdl-lb">Fornecedores - marque um ou varios. "Referencia" e opcional e vale para todos os produtos selecionados.</div>';
+  } else if (m.novo) {
+    h += '<div class="mdl-h"><div class="mdl-t">Cadastrar produto</div><div class="mdl-s">Informe o codigo sempre que possivel: ele identifica o produto nas proximas importacoes.</div></div><div class="mdl-b">';
+    h += '<div class="mdl-lb">Produto</div><div class="mdl-grid"><input class="inp" id="m-cod" placeholder="Codigo"><input class="inp" id="m-prod" placeholder="Descricao do produto"></div>';
+    h += '<div class="mdl-grid" style="margin-top:8px"><input class="inp" id="m-marca" placeholder="Marca (opcional)"><span></span></div>';
+  } else {
+    var cadastrado = !!cad.produtos[m.k];
+    h += '<div class="mdl-h"><div class="mdl-t">'+esc(inf.produto || m.k)+'</div><div class="mdl-s">'+(inf.codigo?'Codigo '+esc(inf.codigo):'Sem codigo (identificado pelo nome)')+(inf.marca?' - Marca '+esc(inf.marca):'')+(cadastrado?'':' - <span style="color:var(--rd)">Produto sem fornecedor cadastrado</span>')+'</div></div><div class="mdl-b">';
+    if (inf.r) {
+      var s = sugestao(inf.r), sid = s ? fornPorNome(s) : null;
+      if (s && !(sid && m.sel[sid])) h += '<div class="mdl-sug"><span style="flex:1">Sugestao pela marca: <b>'+esc(s)+'</b>'+(sid?'':' (fornecedor novo)')+'</span><button class="btn btn-sm" onclick="mAddNome(\''+encK(s)+'\')">Adicionar</button></div>';
+    }
+  }
+  if (!m.lote) h += '<div class="mdl-lb">Fornecedores que vendem este produto - marque um ou varios. "Referencia" e opcional e nao obriga a compra nele.</div>';
+  h += '<input class="inp" id="m-q" style="width:100%;margin-bottom:8px" placeholder="Filtrar fornecedores" oninput="MS.q=this.value;mList()">';
+  h += '<div class="ml" id="m-list"></div>';
+  h += '<div class="mdl-lb">Novo fornecedor</div><div style="display:flex;gap:8px"><input class="inp" id="m-novo" style="flex:1" placeholder="Nome do fornecedor" onkeydown="if(event.key===\'Enter\')mAddForn()"><button class="btn" onclick="mAddForn()">Adicionar e marcar</button></div>';
+  h += '</div><div class="mdl-f">';
+  if (!m.novo && !m.lote && cad.produtos[m.k]) h += '<button class="btn btn-dng sp" onclick="mRemover()">Remover cadastro</button>';
+  h += '<button class="btn" onclick="fecharModal()">Cancelar</button><button class="btn btn-pri" onclick="mSalvar()">'+(m.lote?'Vincular '+m.keys.length+' produto(s)':'Salvar')+'</button></div>';
+  abrirModal(h);
+  mList();
+}
+function mList() {
+  var m = MS; if (!m) return;
+  var q = (m.q || '').toLowerCase().trim();
+  var ids = fornsOrdenados().filter(function(id){ return !q || fornNome(id).toLowerCase().indexOf(q) >= 0 || m.sel[id]; });
+  ids.sort(function(a,b){ return (m.sel[b]?1:0) - (m.sel[a]?1:0) || fornNome(a).localeCompare(fornNome(b)); });
+  var el = document.getElementById('m-list');
+  if (!ids.length) { el.innerHTML = '<div class="lim">'+(Object.keys(cad.fornecedores).length?'Nenhum fornecedor encontrado.':'Nenhum fornecedor cadastrado ainda. Adicione abaixo.')+'</div>'; return; }
+  el.innerHTML = ids.map(function(id){
+    var on = !!m.sel[id], f = cad.fornecedores[id];
+    return '<div class="ml-row'+(on?' on':'')+'"><label class="ml-lbl"><input type="checkbox" '+(on?'checked':'')+' onchange="mSel(\''+id+'\',this.checked)">'+esc(f.nome)+(f.atacado?' <span class="mi">(atacado)</span>':'')+'</label><label class="ml-ref'+(on?'':' dis')+'"><input type="radio" name="mref" '+(m.principal===id?'checked':'')+' '+(on?'':'disabled')+' onclick="mRef(\''+id+'\')">Referencia</label></div>';
+  }).join('');
+}
+function mSel(id, on) {
+  if (on) MS.sel[id] = true; else { delete MS.sel[id]; if (MS.principal === id) MS.principal = null; }
+  mList();
+}
+function mRef(id) {
+  MS.principal = (MS.principal === id) ? null : id; // clicar de novo remove a referencia
+  mList();
+}
+function mAddForn() {
+  var inp = document.getElementById('m-novo');
+  var nome = normNome(inp.value);
+  if (!nome) { inp.focus(); return; }
+  var ex = fornPorNome(nome);
+  var id = ex || criarForn(nome);
+  if (!ex) saveCad();
+  MS.sel[id] = true; inp.value = '';
+  if (!ex) toast('Fornecedor "' + nome + '" cadastrado.');
+  mList();
+}
+function mAddNome(en) {
+  var nome = decodeURIComponent(en);
+  var ex = fornPorNome(nome);
+  var id = ex || criarForn(nome);
+  if (!ex) saveCad();
+  MS.sel[id] = true;
+  var box = document.querySelector('.mdl-sug'); if (box) box.remove();
+  mList();
+}
+function mSalvar() {
+  var m = MS; if (!m) return;
+  if (m.lote) { salvarLote(m); return; }
+  var k = m.k, info = m.info;
+  if (m.novo) {
+    var cod = normNome(document.getElementById('m-cod').value);
+    var prod = normNome(document.getElementById('m-prod').value);
+    var marca = normNome(document.getElementById('m-marca').value);
+    if (!cod && !prod) { alert('Informe o codigo ou a descricao do produto.'); return; }
+    info = {codigo:cod, produto:prod, marca:marca};
+    k = itemKey({codigo:cod, produto:prod});
+    // Evita cadastro duplicado
+    if (!cod && prod) {
+      var achado = null;
+      Object.keys(cad.produtos).forEach(function(x){ if (!achado && (cad.produtos[x].produto||'').toUpperCase() === prod.toUpperCase()) achado = x; });
+      if (achado) k = achado;
+    }
+    if (cad.produtos[k]) {
+      if (!confirm('Ja existe um cadastro para este produto ('+(cad.produtos[k].produto||k)+').\n\nOs fornecedores marcados serao ADICIONADOS ao cadastro existente. Continuar?')) return;
+      var px = cad.produtos[k];
+      Object.keys(m.sel).forEach(function(id){ if (px.fornecedores.indexOf(id) < 0) px.fornecedores.push(id); });
+      if (m.principal && !px.principal) px.principal = m.principal;
+      px.atualizado = todayISO();
+      saveCad(); fecharModal(); afterCadChange();
+      return;
+    }
+  }
+  var p = ensureProd(k, info);
+  var antes = p.fornecedores.slice();
+  p.fornecedores = fornsOrdenados().filter(function(id){ return m.sel[id]; });
+  // preserva a ordem anterior e adiciona os novos no fim
+  p.fornecedores.sort(function(a,b){ var ia=antes.indexOf(a), ib=antes.indexOf(b); return (ia<0?999:ia)-(ib<0?999:ib); });
+  p.principal = (m.principal && m.sel[m.principal]) ? m.principal : null;
+  p.atualizado = todayISO();
+  if (!saveCad()) return;
+  fecharModal();
+  afterCadChange();
+  toast(p.fornecedores.length ? 'Fornecedores salvos: ' + joinPt(p.fornecedores.map(fornNome)) + '.' : 'Produto ficou sem fornecedor cadastrado.');
+}
+function salvarLote(m) {
+  var fids = fornsOrdenados().filter(function(id){ return m.sel[id]; });
+  if (!fids.length) { alert('Marque pelo menos um fornecedor.'); return; }
+  m.keys.forEach(function(k){
+    var r = rowDe(k);
+    var p = ensureProd(k, r ? {codigo:r.codigo, produto:r.produto, marca:r.marca} : null);
+    fids.forEach(function(id){ if (p.fornecedores.indexOf(id) < 0) p.fornecedores.push(id); });
+    if (m.principal && fids.indexOf(m.principal) >= 0) p.principal = m.principal;
+    p.atualizado = todayISO();
+    delete ts('__SEM__').checked[k];
+  });
+  if (!saveCad()) return;
+  fecharModal();
+  afterCadChange();
+  toast(m.keys.length + ' produto(s) vinculado(s) a ' + joinPt(fids.map(fornNome)) + '.');
+}
+function mRemover() {
+  var k = MS && MS.k;
+  if (!k || !cad.produtos[k]) return;
+  if (!confirm('Remover o cadastro deste produto e todos os seus vinculos com fornecedores?\n\nEle voltara a aparecer como "Produto sem fornecedor cadastrado".')) return;
+  delete cad.produtos[k];
+  saveCad(); fecharModal(); afterCadChange();
+}
+
+// =====================================================================
+//  ABA CADASTRO
+// =====================================================================
+function renderCad() {
+  var nf = Object.keys(cad.fornecedores).length, np = Object.keys(cad.produtos).length;
+  var ult = '';
+  try { ult = localStorage.getItem(LAST_EXPORT_KEY) || ''; } catch(e) {}
+  document.getElementById('cad-sum').textContent = nf + ' fornecedor(es) - ' + np + ' produto(s) cadastrado(s) - salvo no servidor, compartilhado com a equipe - ' + (ult ? 'ultimo backup exportado em ' + fmtISO(ult) : 'nenhum backup exportado ainda');
+  document.getElementById('btn-restore').style.display = cadBak ? '' : 'none';
+  document.getElementById('cad-dica').style.display = (!nf && !np) ? '' : 'none';
+  renderCadForn();
+  renderCadProd();
+}
+function renderCadForn() {
+  var el = document.getElementById('cad-forn');
+  var ids = fornsOrdenados();
+  if (!ids.length) { el.innerHTML = '<div class="empty" style="padding:28px">Nenhum fornecedor cadastrado.<br>Adicione acima ou use "Vincular" na lista de produtos sem fornecedor.</div>'; return; }
+  var vinc = {};
+  Object.keys(cad.produtos).forEach(function(k){ cad.produtos[k].fornecedores.forEach(function(id){ vinc[id] = (vinc[id]||0) + 1; }); });
+  var h = '<table class="pt"><thead><tr><th>Fornecedor</th><th>Tipo de lista</th><th class="r">Produtos vinculados</th><th class="r">Na lista atual</th><th class="r"></th></tr></thead><tbody>';
+  ids.forEach(function(id){
+    var f = cad.fornecedores[id], t = taskById(id);
+    h += '<tr><td class="td-n">'+esc(f.nome)+'</td><td><button class="exbtn" title="Alternar tipo de lista" onclick="togAtacado(\''+id+'\')">'+(f.atacado?'Cotacao de atacado (selecao)':'Normal')+'</button></td><td class="mo r">'+(vinc[id]||0)+'</td><td class="mo r">'+(t?nAtivos(t):0)+'</td><td class="r"><span class="exg"><button class="exbtn" onclick="filtrarForn(\''+id+'\')">Ver produtos</button> <button class="exbtn" onclick="renomearForn(\''+id+'\')">Renomear</button> <button class="exbtn" style="color:var(--rd)" onclick="excluirForn(\''+id+'\')">Excluir</button></span></td></tr>';
+  });
+  h += '</tbody></table>';
+  el.innerHTML = h;
+}
+function addForn() {
+  var inp = document.getElementById('nf-nome');
+  var nome = normNome(inp.value);
+  if (!nome) { inp.focus(); return; }
+  if (fornPorNome(nome)) { alert('Ja existe um fornecedor com este nome.'); return; }
+  criarForn(nome, document.getElementById('nf-at').checked);
+  saveCad();
+  inp.value = ''; document.getElementById('nf-at').checked = false;
+  afterCadChange();
+  toast('Fornecedor "' + nome + '" cadastrado.');
+}
+function renomearForn(id) {
+  var f = cad.fornecedores[id]; if (!f) return;
+  var nome = prompt('Novo nome para o fornecedor "' + f.nome + '":', f.nome);
+  if (nome === null) return;
+  nome = normNome(nome);
+  if (!nome || nome === f.nome) return;
+  var ex = fornPorNome(nome);
+  if (ex && ex !== id) { alert('Ja existe um fornecedor com este nome.'); return; }
+  f.nome = nome;
+  saveCad(); afterCadChange();
+}
+function togAtacado(id) {
+  var f = cad.fornecedores[id]; if (!f) return;
+  f.atacado = !f.atacado;
+  saveCad(); afterCadChange();
+}
+function excluirForn(id) {
+  var f = cad.fornecedores[id]; if (!f) return;
+  var n = 0;
+  Object.keys(cad.produtos).forEach(function(k){ if (cad.produtos[k].fornecedores.indexOf(id) >= 0) n++; });
+  if (!confirm('Excluir o fornecedor "' + f.nome + '"?\n\nEle sera desvinculado de ' + n + ' produto(s). Produtos que ficarem sem nenhum fornecedor voltam para "Produtos sem fornecedor cadastrado".\n\nDica: exporte um backup antes, se tiver duvida.')) return;
+  Object.keys(cad.produtos).forEach(function(k){
+    var p = cad.produtos[k];
+    p.fornecedores = p.fornecedores.filter(function(x){ return x !== id; });
+    if (p.principal === id) p.principal = null;
+  });
+  delete cad.fornecedores[id];
+  delete tstate[id]; delete exp[id];
+  saveCad(); afterCadChange();
+}
+function filtrarForn(id) {
+  document.getElementById('cad-f').value = 'cad';
+  document.getElementById('cad-q').value = fornNome(id);
+  renderCadProd();
+  document.getElementById('cad-q').scrollIntoView({behavior:'smooth', block:'center'});
+}
+function renderCadProd() {
+  var el = document.getElementById('cad-prod');
+  var q = (document.getElementById('cad-q').value || '').toLowerCase().trim();
+  var modo = document.getElementById('cad-f').value;
+  var itens = [];
+  if (modo === 'cad') {
+    Object.keys(cad.produtos).forEach(function(k){ itens.push({k:k, info:infoDe(k)}); });
+  } else {
+    var seen = {};
+    raw.forEach(function(r){
+      var k = itemKey(r);
+      if (seen[k]) return; seen[k] = 1;
+      var n = fornsDe(k).length;
+      if (modo === 'sem' && (n || isExtra(r))) return;
+      if (modo === 'multi' && n < 2) return;
+      itens.push({k:k, info:infoDe(k)});
+    });
+  }
+  itens = itens.filter(function(i){
+    if (!q) return true;
+    var fs = fornsDe(i.k).map(fornNome).join(' ');
+    return (i.info.produto+' '+i.info.codigo+' '+i.info.marca+' '+fs).toLowerCase().indexOf(q) >= 0;
+  });
+  itens.sort(function(a,b){ return (a.info.produto||'').localeCompare(b.info.produto||''); });
+  if (!itens.length) {
+    el.innerHTML = '<div class="empty" style="padding:28px">'+(modo==='cad' && !Object.keys(cad.produtos).length ? 'Nenhum produto cadastrado ainda.<br>Importe a planilha e vincule os produtos aos fornecedores.' : 'Nenhum produto encontrado.')+'</div>';
+    return;
+  }
+  var LIM = 300, h = '<table class="pt"><thead><tr><th>Produto</th><th>Codigo</th><th>Marca</th><th>Fornecedores</th><th class="r">Na lista atual</th><th class="r"></th></tr></thead><tbody>';
+  itens.slice(0, LIM).forEach(function(i){
+    var p = cad.produtos[i.k], fs = fornsDe(i.k);
+    var chips = fs.length ? fs.map(function(id){ var ref = p && p.principal === id; return '<span class="chip'+(ref?' ref':'')+'" title="'+(ref?'Fornecedor de referencia':'')+'">'+(ref?'&#9733; ':'')+esc(fornNome(id))+'</span>'; }).join('') : '<span class="chip none">sem fornecedor</span>';
+    var r = i.info.r, atual = '<span style="color:var(--tx3)">-</span>';
+    if (r) { var cv = convQtd(r.qtd, r.vol); atual = '<span class="ex-tag">'+cv.q+' '+esc(cv.un)+'</span>'; }
+    h += '<tr><td class="td-n">'+esc(i.info.produto||'-')+'</td><td class="mo">'+esc(i.info.codigo||'-')+'</td><td>'+esc(i.info.marca||'-')+'</td><td>'+chips+'</td><td class="r">'+atual+'</td><td class="r"><button class="exbtn ex-forn" onclick="abrirProd(\''+encK(i.k)+'\',event)">Editar fornecedores</button></td></tr>';
+  });
+  h += '</tbody></table>';
+  if (itens.length > LIM) h += '<div class="lim">Mostrando ' + LIM + ' de ' + itens.length + ' produtos. Use a busca para refinar.</div>';
+  el.innerHTML = h;
+}
+
+// ===== BACKUP DO CADASTRO =====
+function exportarBackup() {
+  var data = {tipo:'sr-compras-cadastro', versao:1, exportado:new Date().toISOString(), fornecedores:cad.fornecedores, produtos:cad.produtos, marcacoes:{extras:extras, descs:descs}};
+  var blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'backup_cadastro_compras_souza_ribeiro_' + todayISO() + '.json';
+  document.body.appendChild(a); a.click();
+  setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  try { localStorage.setItem(LAST_EXPORT_KEY, todayISO()); } catch(e) {}
+  renderCad();
+}
+var BKP = null;
+function importarBackup(file) {
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(e){
+    var d;
+    try { d = JSON.parse(e.target.result); } catch(err) { alert('Arquivo invalido: nao e um backup JSON.'); return; }
+    if (!d || d.tipo !== 'sr-compras-cadastro' || typeof d.fornecedores !== 'object' || typeof d.produtos !== 'object') { alert('Este arquivo nao e um backup do cadastro de compras.'); return; }
+    BKP = d;
+    var nf = Object.keys(d.fornecedores).length, np = Object.keys(d.produtos).length;
+    var data = d.exportado ? fmtISO(d.exportado.slice(0,10)) : '-';
+    abrirModal('<div class="mdl-h"><div class="mdl-t">Importar backup</div><div class="mdl-s">Backup de '+data+': '+nf+' fornecedor(es), '+np+' produto(s).</div></div><div class="mdl-b"><p style="margin-bottom:10px"><b>Mesclar</b> (recomendado): mantem o cadastro atual e adiciona o que estiver no backup. Fornecedores com o mesmo nome sao unificados.</p><p><b>Substituir</b>: troca todo o cadastro atual pelo do backup. Uma copia do cadastro atual e guardada e pode ser restaurada.</p></div><div class="mdl-f"><button class="btn" onclick="fecharModal()">Cancelar</button><button class="btn btn-dng" onclick="aplicarBackup(\'sub\')">Substituir</button><button class="btn btn-pri" onclick="aplicarBackup(\'mes\')">Mesclar</button></div>');
+  };
+  reader.readAsText(file, 'utf-8');
+}
+function guardarBak() {
+  cadBak = JSON.parse(JSON.stringify({data:new Date().toISOString(), fornecedores:cad.fornecedores, produtos:cad.produtos, extras:extras, descs:descs}));
+  sincronizar(['backup']);
+  return true;
+}
+function aplicarBackup(modo) {
+  var d = BKP; if (!d) return;
+  if (modo === 'sub' && !confirm('Substituir TODO o cadastro atual (' + Object.keys(cad.fornecedores).length + ' fornecedores, ' + Object.keys(cad.produtos).length + ' produtos) pelo backup?')) return;
+  if (!guardarBak()) return;
+  var mk = d.marcacoes || {};
+  if (modo === 'sub') {
+    cad.fornecedores = JSON.parse(JSON.stringify(d.fornecedores));
+    cad.produtos = JSON.parse(JSON.stringify(d.produtos));
+    if (mk.extras) extras = mk.extras;
+    if (mk.descs) descs = mk.descs;
+    sanitizeCad();
+  } else {
+    var map = {}, addF = 0, addP = 0, updP = 0;
+    Object.keys(d.fornecedores).forEach(function(id){
+      var f = d.fornecedores[id];
+      if (!f || !normNome(f.nome)) return;
+      var ex = fornPorNome(f.nome);
+      if (ex) { map[id] = ex; return; }
+      var nid = cad.fornecedores[id] ? newId() : id;
+      cad.fornecedores[nid] = {id:nid, nome:normNome(f.nome), atacado:!!f.atacado, criado:f.criado || todayISO()};
+      map[id] = nid; addF++;
+    });
+    Object.keys(d.produtos).forEach(function(k){
+      var ip = d.produtos[k];
+      if (!ip || typeof ip !== 'object') return;
+      var fs = (ip.fornecedores || []).map(function(id){ return map[id]; }).filter(Boolean);
+      var p = cad.produtos[k];
+      if (!p) {
+        cad.produtos[k] = {codigo:ip.codigo||'', produto:ip.produto||'', marca:ip.marca||'', fornecedores:fs, principal:map[ip.principal]||null, criado:ip.criado||todayISO(), atualizado:todayISO()};
+        addP++;
+      } else {
+        var mudou = false;
+        fs.forEach(function(id){ if (p.fornecedores.indexOf(id) < 0) { p.fornecedores.push(id); mudou = true; } });
+        if (!p.principal && map[ip.principal]) { p.principal = map[ip.principal]; mudou = true; }
+        if (mudou) updP++;
       }
     });
+    if (mk.extras) Object.keys(mk.extras).forEach(function(k){ if (!extras[k] && !descs[k]) extras[k] = mk.extras[k]; });
+    if (mk.descs) Object.keys(mk.descs).forEach(function(k){ if (!descs[k] && !extras[k]) descs[k] = mk.descs[k]; });
+    sanitizeCad();
+    setTimeout(function(){ alert('Backup mesclado: ' + addF + ' fornecedor(es) novo(s), ' + addP + ' produto(s) novo(s), ' + updP + ' produto(s) atualizado(s).'); }, 50);
+  }
+  saveCad(); saveExtras(); saveDescs();
+  fecharModal();
+  afterCadChange(); renderExtra(); renderDesc(); updTab();
+  if (modo === 'sub') toast('Cadastro substituido pelo backup.');
+}
+function restaurarBak() {
+  var b = cadBak;
+  if (!b) return;
+  if (!confirm('Restaurar o cadastro como estava antes da ultima importacao de backup (' + (b.data ? fmtISO(b.data.slice(0,10)) : '-') + ')?\n\nO cadastro atual sera substituido.')) return;
+  cad.fornecedores = b.fornecedores || {}; cad.produtos = b.produtos || {};
+  if (b.extras) extras = b.extras;
+  if (b.descs) descs = b.descs;
+  sanitizeCad();
+  saveCad(); saveExtras(); saveDescs();
+  cadBak = null; sincronizar(['backup']);
+  afterCadChange(); renderExtra(); renderDesc(); updTab();
+  toast('Cadastro restaurado.');
+}
 
-    async function sair() { await SRAuth.sair(); document.getElementById('senha').value = ''; mostrarLogin(); }
-    document.getElementById('btn-sair').addEventListener('click', sair);
-    document.getElementById('btn-trocar').addEventListener('click', sair);
+// ===== IMPORTACAO DA PLANILHA DE SUGESTOES =====
+function processData(rows) {
+  var nb = Object.keys(buys).length;
+  if ((nb || raw.length) && !confirm('Importar uma nova planilha inicia um novo ciclo de compras PARA TODOS os usuarios do SR Compras.\n\nA lista atual' + (nb ? ' e a aba Comprados (' + nb + ' item(ns))' : '') + ' serao substituidas.\nO cadastro de fornecedores e as Vendas extraordinarias/Descontinuadas sao mantidos.\n\nContinuar?')) return;
+  buys={};saveBuys();
+  raw=rows;tstate={};exp={};
+  nRaw=rows.length;importDate=todayISO();
+  rebuild();
+  showGreet();
+  updSum();render();renderBuy();saveState();
+  if(view==='cad') renderCad();
+  var ns=nSemForn();
+  if(ns>0) toast(ns+' produto(s) sem fornecedor cadastrado. Vincule na lista indicada em vermelho.');
+}
 
-    // se entrar/sair em outro sistema ou nas Configurações, atualiza aqui também
-    SRAuth.aoMudarSessao(verificar);
+function colForn(o) {
+  return (o['FORNECEDOR']||o['NOME_FORNECEDOR']||o['RAZAO_FORNECEDOR']||'').toString().trim();
+}
+
+function handleCSV(file) {
+  if(!file) return;
+  var reader=new FileReader();
+  var isCSV=file.name.toLowerCase().indexOf('.csv')>=0;
+  if(isCSV){
+    reader.onload=function(e){
+      try{
+        var text=e.target.result;
+        var lines=text.split('\n').filter(function(l){return l.trim();});
+        var sep=lines[0].indexOf(';')>=0?';':',';
+        var headers=lines[0].split(sep).map(function(h){return h.trim().replace(/"/g,'');});
+        var rows=[];
+        lines.slice(1).forEach(function(l){
+          var vals=l.split(sep).map(function(v){return v.trim().replace(/"/g,'');});
+          var o={};headers.forEach(function(h,i){o[h]=vals[i]||'';});
+          var qtd=parseNum(o['QUANTIDADE_COMPRA']);
+          if(qtd>0){
+            rows.push({
+              marca:(o['NOME_MARCA']||'').trim(),
+              produto:(o['DESCRICAO_PRODUTO']||'').trim(),
+              codigo:(o['CODIGO']||'').trim(),
+              saldo:parseNum(o['SALDODISPO']),
+              emin:parseNum(o['ESTOQUE_MINIMO']),
+              qtd:qtd,
+              custo:parseNum(o['VL_ULTIMA_COMPRA_UN']),
+              vol:(o['VOL_COMPRA']||'').trim(),
+              fornPlanilha:colForn(o)
+            });
+          }
+        });
+        if(rows.length) processData(rows);
+        else alert('Nenhum produto encontrado.');
+      }catch(err){alert('Erro: '+err.message);}
+    };
+    reader.readAsText(file,'latin-1');
+  } else {
+    reader.onload=function(e){
+      try{
+        if(typeof XLSX==='undefined'){alert('A biblioteca de leitura de XLS/XLSX nao carregou. Recarregue a pagina ou exporte a planilha como CSV.');return;}
+        var wb=XLSX.read(e.target.result,{type:'array'});
+        var ws=wb.Sheets[wb.SheetNames[0]];
+        var data=XLSX.utils.sheet_to_json(ws);
+        var rows=data.map(function(r){return{
+          marca:(r['NOME_MARCA']||'').toString().trim(),
+          produto:(r['DESCRICAO_PRODUTO']||'').toString().trim(),
+          codigo:(r['CODIGO']||'').toString().trim(),
+          saldo:parseFloat(r['SALDODISPO']||0)||0,
+          emin:parseFloat(r['ESTOQUE_MINIMO']||0)||0,
+          qtd:parseFloat(r['QUANTIDADE_COMPRA']||0)||0,
+          custo:parseFloat(r['VL_ULTIMA_COMPRA_UN']||0)||0,
+          vol:(r['VOL_COMPRA']||'').toString().trim(),
+          fornPlanilha:colForn(r)
+        };}).filter(function(r){return r.qtd>0&&r.produto;});
+        if(rows.length) processData(rows);
+        else alert('Nenhum produto encontrado.');
+      }catch(err){alert('Erro: '+err.message);}
+    };
+    reader.readAsArrayBuffer(file);
+  }
+}
+
+// ===== INICIALIZACAO (chamada depois do login) =====
+async function iniciarCompras(usuario) {
+  NOME_USUARIO = String((usuario && usuario.nome) || '').trim().split(/\s+/)[0] || '';
+  document.getElementById('u-nome').textContent = (usuario && usuario.nome) || '';
+  document.getElementById('u-user').textContent = usuario ? '@' + usuario.username : '';
+  if (DB.pronto) { // ja carregado: so grava o que ficou pendente (ex.: a sessao tinha expirado)
+    DB.erro = ''; sincronizar(); if (raw.length) showGreet(); return;
+  }
+  lerTela();
+  await carregarServidor();
+  if (sheetsMsg.msg) setStatus(sheetsMsg.msg, sheetsMsg.type);
+  rebuild();
+  syncFilterUI();
+  if (raw.length) showGreet();
+  updSum(); render();
+  setView(view, true);
+  statusSalvo();
+  setInterval(function(){ verificarAtualizacao(false); }, 30000);
+  document.addEventListener('visibilitychange', function(){ if (!document.hidden) verificarAtualizacao(false); });
+  window.addEventListener('focus', function(){ verificarAtualizacao(false); });
+}
+document.getElementById('sdate').textContent=new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'});
+</script>
+
+<script>
+// =====================================================================
+//  LOGIN — mesmo fluxo de sistemas/_modelo.html (SRAuth da SR Central).
+//  So depois de confirmar usuario, senha e acesso ao "compras" os dados
+//  sao baixados do Supabase e o sistema aparece.
+// =====================================================================
+(function () {
+  var SISTEMA = 'compras';
+  var telas = ['t-carregando', 't-login', 't-sem-acesso', 't-falha', 't-app'];
+  function ver(id) { telas.forEach(function (t) { document.getElementById(t).hidden = t !== id; }); }
+  function carga(txt) { document.getElementById('carga-txt').textContent = txt || ''; ver('t-carregando'); }
+  var usuarioAtual = null;
+
+  function iniciais(nome) {
+    var p = String(nome || '?').trim().split(/\s+/);
+    return ((p[0] || '')[0] + ((p.length > 1 ? p[p.length - 1][0] : (p[0] || '')[1]) || '')).toUpperCase();
+  }
+
+  async function verificar() {
+    carga('');
+    var cad = null;
+    try { cad = await SRAuth.meuCadastro(true); } catch (e) { return mostrarLogin(e.message); }
+    if (!cad || !cad.ativo) return mostrarLogin();
+    if (!SRAuth.temAcesso(cad, SISTEMA)) {
+      document.getElementById('sa-nome').textContent = cad.nome + ' (@' + cad.username + ')';
+      return ver('t-sem-acesso');
+    }
+    usuarioAtual = cad;
+    document.getElementById('u-av').textContent = iniciais(cad.nome);
+    if (!DB.pronto) carga('Carregando cadastro e listas de compras...');
+    try {
+      await iniciarCompras(cad);
+    } catch (e) {
+      if (e && e.status === 401) return mostrarLogin('Sua sessão expirou. Entre de novo.');
+      document.getElementById('falha-msg').textContent = (e && e.message) || 'Erro inesperado.';
+      return ver('t-falha');
+    }
+    ver('t-app');
+  }
+
+  function mostrarLogin(msg, aviso) {
+    var e = document.getElementById('lg-erro');
+    e.textContent = msg || ''; e.hidden = !msg;
+    var a = document.getElementById('lg-aviso');
+    a.textContent = aviso || ''; a.hidden = !aviso;
+    if (typeof fecharModal === 'function') fecharModal();
+    ver('t-login');
+    setTimeout(function () { var u = document.getElementById('lg-usuario'); (u.value ? document.getElementById('lg-senha') : u).focus(); }, 30);
+  }
+
+  document.getElementById('lg-form').addEventListener('submit', async function (ev) {
+    ev.preventDefault();
+    var b = document.getElementById('lg-entrar');
+    b.disabled = true; b.innerHTML = '<span class="lg-spin mini"></span>';
+    try {
+      await SRAuth.entrar(this.usuario.value, this.senha.value);
+      this.senha.value = '';
+      await verificar();
+    } catch (err) {
+      mostrarLogin(err.message);
+    } finally {
+      b.disabled = false; b.textContent = 'Entrar';
+    }
+  });
+
+  async function sair() {
+    if ((DB.pend > 0 || DB.erro) && !confirm('Ainda ha alteracoes sendo gravadas. Se sair agora, elas podem ser perdidas. Sair mesmo assim?')) return;
+    await SRAuth.sair();
+    document.getElementById('lg-senha').value = '';
+    location.reload(); // limpa os dados da memoria ao sair
+  }
+  document.getElementById('btn-sair').addEventListener('click', sair);
+  document.getElementById('lg-trocar').addEventListener('click', async function () { await SRAuth.sair(); mostrarLogin(); });
+  document.getElementById('lg-tentar').addEventListener('click', verificar);
+
+  window.SRCompras = {
+    // chamada quando o servidor recusa a sessao: pede login de novo e depois grava o que ficou pendente
+    sessaoExpirou: function () {
+      if (!document.getElementById('t-login').hidden) return;
+      mostrarLogin('', 'Sua sessão expirou. Entre de novo: as alterações que ainda não foram salvas serão gravadas em seguida.');
+    }
+  };
+
+  // entrou/saiu em outro sistema da Central ou nas Configuracoes
+  SRAuth.aoMudarSessao(function (s) {
+    if (!s) { if (DB.pend > 0 || DB.erro) return mostrarLogin('', 'Você saiu em outro sistema. Entre de novo para terminar de salvar.'); location.reload(); return; }
     verificar();
-  })();
-  </script>
+  });
+  verificar();
+})();
+</script>
 </body>
 </html>
