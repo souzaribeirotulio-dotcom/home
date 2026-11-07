@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SR Expedição · Souza Ribeiro</title>
+<link rel="icon" type="image/png" href="../../assets/marca/favicon.png">
+<!--
+  ============================================================
+  SR Expedição — página provisória
+  Substitua este arquivo pelo HTML do sistema.
+  O login abaixo é só visual: ainda não valida nada.
+  Quando o sistema for ligado ao Supabase, ele passa a
+  autenticar de verdade aqui, antes de liberar o uso.
+  ============================================================
+-->
+<style>
+  :root { --c: #ffad4d; --bg: #081b06; --cartao: #0c2408; --campo: #102d0a; --linha: rgba(255,255,255,.12); --texto: #f3f8ee; --texto-2: #a9c19a; --texto-3: #6e8b60; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: "Poppins", "Inter", "Segoe UI", system-ui, sans-serif; color: var(--texto); font-size: 14px;
+    background:
+      radial-gradient(700px 480px at 85% -10%, color-mix(in srgb, var(--c) 18%, transparent), transparent 60%),
+      radial-gradient(600px 500px at -10% 110%, rgba(43,115,3,.35), transparent 60%),
+      var(--bg);
+    display: grid; place-items: center; padding: 24px; -webkit-font-smoothing: antialiased;
+  }
+  .card { width: 100%; max-width: 400px; background: rgba(12,36,8,.85); border: 1px solid var(--linha); border-radius: 20px; padding: 34px 30px 28px; box-shadow: 0 30px 80px rgba(0,0,0,.45); backdrop-filter: blur(8px); }
+  .topo { display: flex; align-items: center; gap: 14px; }
+  .ic { width: 50px; height: 50px; border-radius: 14px; display: grid; place-items: center; color: var(--c); background: color-mix(in srgb, var(--c) 14%, transparent); border: 1px solid color-mix(in srgb, var(--c) 30%, transparent); }
+  .ic svg { width: 26px; height: 26px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .sist { font-size: 12px; color: var(--texto-3); }
+  h1 { font-size: 20px; letter-spacing: -.4px; }
+  p.sub { color: var(--texto-2); margin: 22px 0 20px; }
+  label { display: block; font-size: 12px; color: var(--texto-2); margin-bottom: 6px; font-weight: 500; }
+  .campo { margin-bottom: 14px; }
+  input { width: 100%; height: 44px; padding: 0 14px; border-radius: 11px; background: var(--campo); border: 1px solid var(--linha); color: var(--texto); font: inherit; outline: none; transition: border-color .15s, box-shadow .15s; }
+  input:focus { border-color: var(--c); box-shadow: 0 0 0 3px color-mix(in srgb, var(--c) 18%, transparent); }
+  button { width: 100%; height: 44px; border: 0; border-radius: 11px; background: var(--c); color: #0b1f06; font: inherit; font-weight: 700; cursor: pointer; margin-top: 6px; transition: filter .15s; }
+  button:hover { filter: brightness(1.08); }
+  .esqueci { display: block; text-align: center; margin-top: 16px; color: var(--texto-2); font-size: 13px; text-decoration: none; }
+  .esqueci:hover { color: var(--c); }
+  .aviso { margin-top: 20px; padding: 12px 14px; border-radius: 12px; font-size: 12.5px; color: var(--texto-2); background: rgba(255,255,255,.03); border: 1px dashed var(--linha); }
+  .aviso b { color: var(--texto); }
+  .pronto { display: none; text-align: center; }
+  .pronto .ic { margin: 0 auto 16px; width: 64px; height: 64px; border-radius: 18px; }
+  .pronto h2 { font-size: 19px; margin-bottom: 8px; }
+  .pronto p { color: var(--texto-2); }
+  .pronto code { background: var(--campo); padding: 2px 7px; border-radius: 6px; font-size: 12.5px; color: var(--texto); }
+  .entrou .form { display: none; }
+  .entrou .pronto { display: block; }
+  .rodape { text-align: center; color: var(--texto-3); font-size: 12px; margin-top: 18px; }
+</style>
+</head>
+<body>
+  <div class="card" id="card">
+    <div class="topo">
+      <div class="ic"><svg viewBox="0 0 24 24"><path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5"/><path d="M12 13v8"/><path d="m7.5 5.5 9 5"/></svg></div>
+      <div><div class="sist">Souza Ribeiro</div><h1>SR Expedição</h1></div>
+    </div>
+
+    <form class="form" id="form" autocomplete="on">
+      <p class="sub">Entre com seu usuário para acessar o sistema.</p>
+      <div class="campo"><label for="email">E-mail</label><input id="email" type="email" placeholder="voce@souzaribeiro.com.br" required></div>
+      <div class="campo"><label for="senha">Senha</label><input id="senha" type="password" placeholder="••••••••" required></div>
+      <button type="submit">Entrar</button>
+      <a class="esqueci" href="#">Esqueci minha senha</a>
+      <div class="aviso"><b>Prévia:</b> este login ainda é só visual. Ele passa a validar de verdade quando o SR Expedição for ligado ao Supabase.</div>
+    </form>
+
+    <div class="pronto">
+      <div class="ic"><svg viewBox="0 0 24 24"><path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5"/><path d="M12 13v8"/><path d="m7.5 5.5 9 5"/></svg></div>
+      <h2>SR Expedição em construção</h2>
+      <p>Substitua o arquivo <code>sistemas/expedicao/index.html</code> pelo sistema real.</p>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById('form').addEventListener('submit', function (e) {
+      e.preventDefault();
+      document.getElementById('card').classList.add('entrou');
+    });
+  </script>
+</body>
+</html>
