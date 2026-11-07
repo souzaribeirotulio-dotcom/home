@@ -1,8 +1,29 @@
 # SR Central · Souza Ribeiro
 
 Tela inicial que reúne todos os sistemas da Souza Ribeiro num só site.
-A Central **não pede login**: ela só organiza e alterna entre os sistemas.
-**Cada sistema tem o próprio login** (Supabase) antes de liberar o uso.
+A tela inicial **não pede login**. **Cada sistema pede usuário e senha** antes de liberar o uso,
+e os acessos são controlados na aba **Configurações**.
+
+## Configurações (usuários e acessos)
+
+- Ícone de engrenagem na barra lateral, ou `#/configuracoes`.
+- Login inicial do administrador: **usuário `ADMIN`, senha `ADMIN`**. **Troque a senha no primeiro acesso.**
+  O site é público, então quem souber ADMIN / ADMIN controla todos os acessos.
+- Lá você cria pessoas (nome, usuário, senha), escolhe os sistemas de cada uma,
+  troca senhas, desativa e exclui usuários.
+- O usuário não diferencia maiúsculas de minúsculas (`ADMIN` = `admin`). A senha diferencia.
+- Como todos os sistemas ficam no mesmo site, quem entra num sistema já fica logado nos outros
+  que tem liberados. Quem não tem acesso vê "Sem acesso".
+
+## Supabase (já configurado)
+
+- Projeto: `cvhcgihumdvytjvbkxvt` · conexão em `assets/sr-config.js` (chave publicável, pode ficar no site).
+- Tabela `usuarios` com RLS: cada pessoa lê só o próprio cadastro, e o admin lê todos.
+  Ninguém grava direto pelo site.
+- Edge Function `sr-admin` (`supabase/functions/sr-admin`): é a única que cria e edita usuários,
+  e só aceita chamadas de um admin logado. A chave secreta fica só no Supabase.
+- SQL de referência em `supabase/migrations/`.
+- Para as tabelas de cada sistema, use na regra RLS: `using (sr_priv.sr_tem_acesso('compras'))`.
 
 ## Estrutura
 
@@ -11,6 +32,9 @@ index.html              tela inicial (Central)
 sistemas.js             lista de sistemas: nome, cor, ícone, caminho
 assets/
   app.js                troca entre sistemas, atalhos, busca
+  config.js             aba Configurações (usuários e acessos)
+  sr-auth.js            login compartilhado (usuário + senha)
+  sr-config.js          endereço e chave pública do Supabase
   style.css             identidade visual Souza Ribeiro
   marca/                logo, símbolo e favicon
 sistemas/
@@ -21,6 +45,7 @@ sistemas/
   expedicao/index.html  SR Expedição
   motorista/index.html  SR Motorista
 vercel.json             cabeçalhos de segurança
+supabase/               Edge Function e SQL do banco
 ```
 
 ## Como funciona
@@ -37,8 +62,9 @@ vercel.json             cabeçalhos de segurança
 
 ## Colocar um sistema real
 
-1. Substitua `sistemas/<id>/index.html` pelo HTML do sistema.
-   Se ele tiver arquivos próprios (CSS, JS, imagens), coloque tudo na mesma pasta.
+1. Substitua o bloco marcado "SUBSTITUA ESTE BLOCO" em `sistemas/<id>/index.html` pelo sistema,
+   mantendo os scripts `sr-config.js` e `sr-auth.js` (eles fazem o login).
+   Para ler e gravar no banco, use `SRAuth.rest('tabela?select=*')`.
 2. Pronto: a Central já abre o arquivo novo.
 
 Para **adicionar** um sistema, crie a pasta em `sistemas/` e inclua uma entrada em `sistemas.js`.
@@ -63,18 +89,6 @@ coloque a URL completa em `caminho`. Se ele não abrir dentro da Central, use `n
 3. Clique em **Deploy**. Cada `git push` publica de novo automaticamente.
 4. (Opcional) Em **Settings → Domains**, ligue um domínio próprio,
    por exemplo `sistemas.souzaribeiro.com.br`.
-
-## Próximo passo: login de cada sistema (Supabase)
-
-As telas de login de cada sistema ainda são **só visuais**.
-Quando cada sistema for ligado ao Supabase:
-
-- Use **um único projeto Supabase** para todos os sistemas. O usuário passa a ter
-  uma conta só e, como todos ficam no mesmo domínio, entra uma vez e já fica logado nos outros.
-- Uma tabela de perfis define **quem acessa qual sistema**. Por exemplo,
-  o motorista vê só o SR Motorista e o vendedor vê só o SR Comercial.
-- A `anon key` do Supabase pode ficar no código do site.
-  A `service_role key` **nunca** pode ir para o site.
 
 ## Testar no computador
 

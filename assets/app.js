@@ -23,6 +23,15 @@
     close: '<path d="M6 6l12 12M18 6 6 18"/>',
     lock: '<rect x="4" y="11" width="16" height="10" rx="2.5"/><path d="M8 11V7.5a4 4 0 0 1 8 0V11"/>',
     arrow: '<path d="M5 12h14"/><path d="m13 6 6 6-6 6"/>',
+    gear: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
+    shield: '<path d="M12 3 4.5 6v5.5c0 4.6 3.2 8.4 7.5 9.5 4.3-1.1 7.5-4.9 7.5-9.5V6z"/><path d="m9 12 2 2 4-4"/>',
+    key: '<circle cx="7.5" cy="15.5" r="4"/><path d="m10.5 12.5 9-9"/><path d="m16 6 3 3"/><path d="m14 8 2 2"/>',
+    logout: '<path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"/><path d="M10 17l-5-5 5-5"/><path d="M5 12h11"/>',
+    edit: '<path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z"/><path d="m13.5 6.5 4 4"/>',
+    trash: '<path d="M4 7h16"/><path d="M10 11v6M14 11v6"/><path d="M6 7l1 13h10l1-13"/><path d="M9 7V4h6v3"/>',
+    plus: '<path d="M12 5v14M5 12h14"/>',
+    alert: '<path d="M12 3 2 20h20z"/><path d="M12 10v4"/><path d="M12 17.5v.01"/>',
+    'check-mini': '<path d="m5 12.5 4.5 4.5L19 7.5"/>',
     grid: '<rect x="3.5" y="3.5" width="7" height="7" rx="2"/><rect x="13.5" y="3.5" width="7" height="7" rx="2"/><rect x="3.5" y="13.5" width="7" height="7" rx="2"/><rect x="13.5" y="13.5" width="7" height="7" rx="2"/>'
   };
   const ic = (n) => '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">' + (ICONES[n] || ICONES.grid) + '</svg>';
@@ -31,6 +40,17 @@
   const ehMac = /Mac|iPhone|iPad/.test(navigator.platform);
   const TECLA_CMD = ehMac ? '⌘' : 'Ctrl';
   const TECLA_ALT = ehMac ? '⌥' : 'Alt';
+
+  function toast(msg, tipo) {
+    let box = document.getElementById('toasts');
+    if (!box) { box = document.createElement('div'); box.id = 'toasts'; document.body.appendChild(box); }
+    const t = document.createElement('div');
+    t.className = 'toast' + (tipo === 'erro' ? ' erro' : '');
+    t.innerHTML = ic(tipo === 'erro' ? 'alert' : 'check-mini') + '<span>' + esc(msg) + '</span>';
+    box.appendChild(t);
+    setTimeout(() => { t.classList.add('sai'); setTimeout(() => t.remove(), 300); }, 3200);
+  }
+  window.SRUI = { ic, esc, semAcento, toast };
 
   // ---------- estado ----------
   const estado = { atual: null, quadros: {} };
@@ -70,6 +90,7 @@
           <div class="trilho-sep"></div>
           <div class="trilho-lista">${docks}</div>
           <div class="trilho-fim">
+            <button class="dock dock-cfg" data-ir="configuracoes" style="--c:var(--lima)" aria-label="Configurações">${ic('gear')}<span class="dica">Configurações</span></button>
             <button class="dock" data-acao="paleta" aria-label="Buscar">${ic('search')}<span class="dica">Buscar <kbd>${TECLA_CMD} K</kbd></span></button>
           </div>
         </nav>
@@ -91,6 +112,7 @@
 
           <div class="palco" id="palco">
             <div class="barra-carga" id="carga"></div>
+            <section class="config" id="config" hidden></section>
             <section class="inicio" id="inicio">
               <div class="fundo"><div class="grade-bg"></div><div class="brilho-1"></div><div class="brilho-2"></div></div>
               <div class="inicio-conteudo">
@@ -158,13 +180,27 @@
 
   function aplicarRota() {
     const id = (location.hash.match(/^#\/([\w-]+)/) || [])[1] || null;
+    if (id === 'configuracoes') return mostrarConfig();
     const s = id && porId(id);
     if (s && s.novaAba) { window.open(s.caminho, '_blank', 'noopener'); history.replaceState(null, '', '#/'); return mostrarInicio(); }
     s ? mostrarSistema(s) : mostrarInicio();
   }
 
+  function mostrarConfig() {
+    estado.atual = 'configuracoes';
+    Object.values(estado.quadros).forEach((q) => q.classList.remove('visivel'));
+    $('#inicio').hidden = true;
+    const el = $('#config');
+    el.hidden = false;
+    document.title = 'Configurações · ' + CENTRAL.nome;
+    atualizarTopo();
+    window.SRConfig.mostrar(el);
+  }
+
   function mostrarInicio() {
     estado.atual = null;
+    $('#config').hidden = true;
+    if (window.SRConfig) window.SRConfig.fecharModal();
     Object.values(estado.quadros).forEach((q) => q.classList.remove('visivel'));
     $('#inicio').hidden = false;
     document.title = CENTRAL.nome + ' · ' + CENTRAL.empresa;
@@ -187,6 +223,8 @@
     }
     Object.entries(estado.quadros).forEach(([k, el]) => el.classList.toggle('visivel', k === s.id));
     $('#inicio').hidden = true;
+    $('#config').hidden = true;
+    if (window.SRConfig) window.SRConfig.fecharModal();
     document.title = s.nome + ' · ' + CENTRAL.nome;
     atualizarTopo();
   }
@@ -199,17 +237,21 @@
 
   function atualizarTopo() {
     const s = estado.atual && porId(estado.atual);
-    $('#migalha').innerHTML = s
+    const cfg = estado.atual === 'configuracoes';
+    $('#migalha').innerHTML = cfg
+      ? `<button class="raiz" data-ir="">${esc(CENTRAL.nome)}</button><span class="barra">/</span><span class="atual">${ic('gear')}Configurações</span>`
+      : s
       ? `<button class="raiz" data-ir="">${esc(CENTRAL.nome)}</button><span class="barra">/</span>
          <span class="atual"><i class="bolinha" style="background:${esc(s.cor)};box-shadow:0 0 10px ${esc(s.cor)}"></i>${esc(s.nome)}</span>`
       : `<span class="atual">${esc(CENTRAL.nome)}</span>`;
     $$('.topo-acoes .ic-btn').forEach((b) => { b.hidden = !s; });
-    $('#relogio').style.display = s ? '' : 'none';
+    $('#relogio').style.display = (s || cfg) ? '' : 'none';
     $$('.trilho .dock[data-ir]').forEach((d) => {
       d.classList.toggle('ativo', d.dataset.ir === estado.atual);
       d.classList.toggle('carregado', !!estado.quadros[d.dataset.ir]);
     });
-    $('.logo').classList.toggle('ativo', !s);
+    $('.logo').classList.toggle('ativo', !s && !cfg);
+    $('.dock-cfg').classList.toggle('ativo', cfg);
     $$('.cartao').forEach((c) => c.classList.toggle('carregado', !!estado.quadros[c.dataset.ir]));
   }
 
@@ -266,7 +308,8 @@
   function renderPaleta(termo) {
     const t = semAcento(termo.trim());
     const base = [{ id: '', nome: 'Início', desc: 'Tela inicial com todos os sistemas', icone: 'home', cor: 'var(--lima)' }]
-      .concat(SISTEMAS.map((s, i) => Object.assign({ tecla: i + 1 }, s)));
+      .concat(SISTEMAS.map((s, i) => Object.assign({ tecla: i + 1 }, s)))
+      .concat([{ id: 'configuracoes', nome: 'Configurações', desc: 'Usuários, senhas e acessos aos sistemas', icone: 'gear', cor: 'var(--lima)' }]);
     itensPaleta = base.filter((s) => !t || semAcento([s.nome, s.curto, s.desc, (s.recursos || []).join(' ')].join(' ')).includes(t));
     selPaleta = Math.min(selPaleta, Math.max(itensPaleta.length - 1, 0));
     if (t) selPaleta = 0;
@@ -359,6 +402,7 @@
     window.addEventListener('hashchange', aplicarRota);
   }
 
-  montar();
-  aplicarRota();
+  function iniciar() { montar(); aplicarRota(); }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', iniciar);
+  else iniciar();
 })();

@@ -7,11 +7,14 @@
 <link rel="icon" type="image/png" href="../../assets/marca/favicon.png">
 <!--
   ============================================================
-  SR Tarefas — página provisória
-  Substitua este arquivo pelo HTML do sistema.
-  O login abaixo é só visual: ainda não valida nada.
-  Quando o sistema for ligado ao Supabase, ele passa a
-  autenticar de verdade aqui, antes de liberar o uso.
+  SR Tarefas — página provisória com LOGIN REAL
+  O login já funciona: confere usuário, senha e se a pessoa
+  tem o SR Tarefas liberado em Configurações.
+
+  Para colocar o sistema de verdade, mantenha os dois <script>
+  do Supabase (sr-config.js e sr-auth.js) e troque o conteúdo
+  da área "app" pelo sistema. Use SRAuth.rest(...) para ler e
+  gravar no banco.
   ============================================================
 -->
 <style>
@@ -24,12 +27,15 @@
       radial-gradient(700px 480px at 85% -10%, color-mix(in srgb, var(--c) 18%, transparent), transparent 60%),
       radial-gradient(600px 500px at -10% 110%, rgba(43,115,3,.35), transparent 60%),
       var(--bg);
-    display: grid; place-items: center; padding: 24px; -webkit-font-smoothing: antialiased;
+    -webkit-font-smoothing: antialiased;
   }
-  .card { width: 100%; max-width: 400px; background: rgba(12,36,8,.85); border: 1px solid var(--linha); border-radius: 20px; padding: 34px 30px 28px; box-shadow: 0 30px 80px rgba(0,0,0,.45); backdrop-filter: blur(8px); }
+  svg.i { width: 26px; height: 26px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .tela { min-height: 100%; display: grid; place-items: center; padding: 24px; }
+  .tela[hidden], [hidden] { display: none !important; }
+  .card { width: 100%; max-width: 400px; background: rgba(12,36,8,.85); border: 1px solid var(--linha); border-radius: 20px; padding: 34px 30px 28px; box-shadow: 0 30px 80px rgba(0,0,0,.45); backdrop-filter: blur(8px); animation: sobe .4s cubic-bezier(.2,.8,.2,1); }
+  @keyframes sobe { from { opacity: 0; transform: translateY(10px); } }
   .topo { display: flex; align-items: center; gap: 14px; }
-  .ic { width: 50px; height: 50px; border-radius: 14px; display: grid; place-items: center; color: var(--c); background: color-mix(in srgb, var(--c) 14%, transparent); border: 1px solid color-mix(in srgb, var(--c) 30%, transparent); }
-  .ic svg { width: 26px; height: 26px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .ic { width: 50px; height: 50px; border-radius: 14px; display: grid; place-items: center; color: var(--c); background: color-mix(in srgb, var(--c) 14%, transparent); border: 1px solid color-mix(in srgb, var(--c) 30%, transparent); flex-shrink: 0; }
   .sist { font-size: 12px; color: var(--texto-3); }
   h1 { font-size: 20px; letter-spacing: -.4px; }
   p.sub { color: var(--texto-2); margin: 22px 0 20px; }
@@ -37,50 +43,142 @@
   .campo { margin-bottom: 14px; }
   input { width: 100%; height: 44px; padding: 0 14px; border-radius: 11px; background: var(--campo); border: 1px solid var(--linha); color: var(--texto); font: inherit; outline: none; transition: border-color .15s, box-shadow .15s; }
   input:focus { border-color: var(--c); box-shadow: 0 0 0 3px color-mix(in srgb, var(--c) 18%, transparent); }
-  button { width: 100%; height: 44px; border: 0; border-radius: 11px; background: var(--c); color: #0b1f06; font: inherit; font-weight: 700; cursor: pointer; margin-top: 6px; transition: filter .15s; }
-  button:hover { filter: brightness(1.08); }
-  .esqueci { display: block; text-align: center; margin-top: 16px; color: var(--texto-2); font-size: 13px; text-decoration: none; }
-  .esqueci:hover { color: var(--c); }
-  .aviso { margin-top: 20px; padding: 12px 14px; border-radius: 12px; font-size: 12.5px; color: var(--texto-2); background: rgba(255,255,255,.03); border: 1px dashed var(--linha); }
-  .aviso b { color: var(--texto); }
-  .pronto { display: none; text-align: center; }
-  .pronto .ic { margin: 0 auto 16px; width: 64px; height: 64px; border-radius: 18px; }
-  .pronto h2 { font-size: 19px; margin-bottom: 8px; }
-  .pronto p { color: var(--texto-2); }
-  .pronto code { background: var(--campo); padding: 2px 7px; border-radius: 6px; font-size: 12.5px; color: var(--texto); }
-  .entrou .form { display: none; }
-  .entrou .pronto { display: block; }
-  .rodape { text-align: center; color: var(--texto-3); font-size: 12px; margin-top: 18px; }
+  .btn { width: 100%; height: 44px; border: 0; border-radius: 11px; background: var(--c); color: #0b1f06; font: inherit; font-weight: 700; cursor: pointer; margin-top: 6px; transition: filter .15s; display: inline-flex; align-items: center; justify-content: center; }
+  .btn:hover { filter: brightness(1.08); }
+  .btn:disabled { opacity: .6; cursor: default; }
+  .btn.sec { background: rgba(255,255,255,.06); color: var(--texto); border: 1px solid var(--linha); }
+  .dica { margin-top: 16px; color: var(--texto-3); font-size: 12.5px; text-align: center; }
+  .erro { background: rgba(229,72,77,.1); border: 1px solid rgba(229,72,77,.35); color: #ffb4b6; padding: 10px 12px; border-radius: 10px; font-size: 13px; margin-bottom: 14px; }
+  .spin { width: 30px; height: 30px; border: 3px solid rgba(255,255,255,.1); border-top-color: var(--c); border-radius: 50%; animation: gira .8s linear infinite; }
+  .spin.mini { width: 18px; height: 18px; border-width: 2px; border-color: rgba(0,0,0,.2); border-top-color: currentColor; }
+  @keyframes gira { to { transform: rotate(360deg); } }
+  .centro { text-align: center; }
+  .centro .ic { margin: 0 auto 16px; width: 60px; height: 60px; border-radius: 18px; }
+  .centro h2 { font-size: 19px; margin-bottom: 8px; }
+  .centro p { color: var(--texto-2); margin-bottom: 18px; }
+  .centro b { color: var(--texto); }
+
+  /* área do sistema (depois do login) */
+  .app { min-height: 100%; display: flex; flex-direction: column; }
+  .barra { display: flex; align-items: center; gap: 12px; padding: 12px 20px; border-bottom: 1px solid var(--linha); background: rgba(8,27,6,.7); backdrop-filter: blur(8px); }
+  .barra .ic { width: 36px; height: 36px; border-radius: 10px; }
+  .barra .ic svg { width: 19px; height: 19px; }
+  .barra h1 { font-size: 16px; }
+  .quem { margin-left: auto; display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--texto-2); }
+  .quem b { color: var(--texto); font-weight: 600; }
+  .sair { height: 34px; padding: 0 12px; border-radius: 9px; border: 1px solid var(--linha); background: rgba(255,255,255,.04); color: var(--texto); font: inherit; font-size: 13px; cursor: pointer; }
+  .sair:hover { border-color: var(--c); }
+  .conteudo { flex: 1; display: grid; place-items: center; padding: 24px; }
+  .construcao { text-align: center; max-width: 440px; }
+  .construcao .ic { margin: 0 auto 18px; width: 70px; height: 70px; border-radius: 20px; }
+  .construcao .ic svg { width: 34px; height: 34px; }
+  .construcao h2 { font-size: 22px; letter-spacing: -.5px; margin-bottom: 8px; }
+  .construcao p { color: var(--texto-2); }
+  .construcao code { background: var(--campo); padding: 2px 7px; border-radius: 6px; font-size: 12.5px; color: var(--texto); }
+  @media (max-width: 520px) { .quem span { display: none; } }
 </style>
 </head>
 <body>
-  <div class="card" id="card">
-    <div class="topo">
-      <div class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="m8 12 3 3 5-6"/></svg></div>
-      <div><div class="sist">Souza Ribeiro</div><h1>SR Tarefas</h1></div>
-    </div>
+  <!-- carregando -->
+  <div class="tela" id="t-carregando"><div class="spin"></div></div>
 
-    <form class="form" id="form" autocomplete="on">
-      <p class="sub">Entre com seu usuário para acessar o sistema.</p>
-      <div class="campo"><label for="email">E-mail</label><input id="email" type="email" placeholder="voce@souzaribeiro.com.br" required></div>
-      <div class="campo"><label for="senha">Senha</label><input id="senha" type="password" placeholder="••••••••" required></div>
-      <button type="submit">Entrar</button>
-      <a class="esqueci" href="#">Esqueci minha senha</a>
-      <div class="aviso"><b>Prévia:</b> este login ainda é só visual. Ele passa a validar de verdade quando o SR Tarefas for ligado ao Supabase.</div>
+  <!-- login -->
+  <div class="tela" id="t-login" hidden>
+    <form class="card" id="form" autocomplete="on">
+      <div class="topo">
+        <div class="ic"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="m8 12 3 3 5-6"/></svg></div>
+        <div><div class="sist">Souza Ribeiro</div><h1>SR Tarefas</h1></div>
+      </div>
+      <p class="sub">Entre com o seu usuário para acessar o sistema.</p>
+      <div class="erro" id="erro" hidden></div>
+      <div class="campo"><label for="usuario">Usuário</label><input id="usuario" name="usuario" autocomplete="username" autocapitalize="none" spellcheck="false" required></div>
+      <div class="campo"><label for="senha">Senha</label><input id="senha" name="senha" type="password" autocomplete="current-password" required></div>
+      <button class="btn" type="submit" id="btn-entrar">Entrar</button>
+      <div class="dica">Esqueceu a senha? Peça ao administrador para trocar.</div>
     </form>
+  </div>
 
-    <div class="pronto">
-      <div class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="m8 12 3 3 5-6"/></svg></div>
-      <h2>SR Tarefas em construção</h2>
-      <p>Substitua o arquivo <code>sistemas/tarefas/index.html</code> pelo sistema real.</p>
+  <!-- sem acesso -->
+  <div class="tela" id="t-sem-acesso" hidden>
+    <div class="card centro">
+      <div class="ic"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="m8 12 3 3 5-6"/></svg></div>
+      <h2>Sem acesso ao SR Tarefas</h2>
+      <p>O usuário <b id="sa-nome"></b> não tem este sistema liberado. Peça ao administrador para liberar em Configurações.</p>
+      <button class="btn sec" id="btn-trocar">Entrar com outro usuário</button>
     </div>
   </div>
 
+  <!-- sistema (depois do login) -->
+  <div class="app" id="t-app" hidden>
+    <header class="barra">
+      <div class="ic"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="m8 12 3 3 5-6"/></svg></div>
+      <h1>SR Tarefas</h1>
+      <div class="quem"><span>Olá, <b id="app-nome"></b></span><button class="sair" id="btn-sair">Sair</button></div>
+    </header>
+    <main class="conteudo">
+      <!-- ===== SUBSTITUA ESTE BLOCO PELO SISTEMA ===== -->
+      <div class="construcao">
+        <div class="ic"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="m8 12 3 3 5-6"/></svg></div>
+        <h2>SR Tarefas em construção</h2>
+        <p>O login já está funcionando. O sistema entra no arquivo <code>sistemas/tarefas/index.html</code>.</p>
+      </div>
+      <!-- ============================================== -->
+    </main>
+  </div>
+
+  <script src="../../assets/sr-config.js"></script>
+  <script src="../../assets/sr-auth.js"></script>
   <script>
-    document.getElementById('form').addEventListener('submit', function (e) {
-      e.preventDefault();
-      document.getElementById('card').classList.add('entrou');
+  (function () {
+    var SISTEMA = 'tarefas';
+    var telas = ['t-carregando', 't-login', 't-sem-acesso', 't-app'];
+    function ver(id) { telas.forEach(function (t) { document.getElementById(t).hidden = t !== id; }); }
+
+    async function verificar() {
+      ver('t-carregando');
+      var cad = null;
+      try { cad = await SRAuth.meuCadastro(true); } catch (e) { return mostrarLogin(e.message); }
+      if (!cad || !cad.ativo) return mostrarLogin();
+      if (!SRAuth.temAcesso(cad, SISTEMA)) {
+        document.getElementById('sa-nome').textContent = cad.nome + ' (@' + cad.username + ')';
+        return ver('t-sem-acesso');
+      }
+      document.getElementById('app-nome').textContent = cad.nome;
+      ver('t-app');
+      // >>> inicie o sistema aqui (o usuário logado é "cad") <<<
+    }
+
+    function mostrarLogin(msg) {
+      var e = document.getElementById('erro');
+      e.textContent = msg || '';
+      e.hidden = !msg;
+      ver('t-login');
+      setTimeout(function () { var u = document.getElementById('usuario'); (u.value ? document.getElementById('senha') : u).focus(); }, 30);
+    }
+
+    document.getElementById('form').addEventListener('submit', async function (ev) {
+      ev.preventDefault();
+      var b = document.getElementById('btn-entrar');
+      b.disabled = true; b.innerHTML = '<span class="spin mini"></span>';
+      try {
+        await SRAuth.entrar(this.usuario.value, this.senha.value);
+        this.senha.value = '';
+        await verificar();
+      } catch (err) {
+        mostrarLogin(err.message);
+      } finally {
+        b.disabled = false; b.textContent = 'Entrar';
+      }
     });
+
+    async function sair() { await SRAuth.sair(); document.getElementById('senha').value = ''; mostrarLogin(); }
+    document.getElementById('btn-sair').addEventListener('click', sair);
+    document.getElementById('btn-trocar').addEventListener('click', sair);
+
+    // se entrar/sair em outro sistema ou nas Configurações, atualiza aqui também
+    SRAuth.aoMudarSessao(verificar);
+    verificar();
+  })();
   </script>
 </body>
 </html>
