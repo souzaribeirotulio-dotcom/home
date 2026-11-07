@@ -25,6 +25,22 @@ e os acessos são controlados na aba **Configurações**.
 - SQL de referência em `supabase/migrations/`.
 - Para as tabelas de cada sistema, use na regra RLS: `using (sr_priv.sr_tem_acesso('compras'))`.
 
+## SR Compras
+
+- Arquivo: `sistemas/compras/index.html` (+ `sistemas/compras/xlsx.full.min.js`, leitor de XLS/XLSX local, sem CDN).
+- Login com o usuário da SR Central. Só entra quem tem **SR Compras** liberado em Configurações (ou é admin).
+- Dados no Supabase, tabela `compras_registros` (`supabase/migrations/20261107_02_sr_compras.sql`),
+  protegida por RLS com `sr_priv.sr_tem_acesso('compras')`. Cada fornecedor, produto e marcação é um registro
+  separado, então duas pessoas usando ao mesmo tempo não apagam o trabalho uma da outra.
+- Tudo é compartilhado entre os usuários do SR Compras: cadastro de fornecedores e produtos, vendas
+  extraordinárias e descontinuadas, lista importada, progresso das listas, Comprados e CSV do Sheets.
+  A tela confere a cada 30 segundos (e ao voltar para a aba) se alguém alterou algo e atualiza sozinha.
+- No navegador ficam só preferências de tela (aba aberta, filtro, listas expandidas).
+- O indicador na barra lateral mostra "Tudo salvo no servidor", "Salvando..." ou "Não salvo".
+  Se a internet cair, o sistema tenta gravar de novo sozinho; se a sessão expirar, pede o login e grava em seguida.
+- **Trazer o cadastro do arquivo antigo** (`compras.html` local): no arquivo antigo, Cadastro → Exportar backup;
+  no SR Compras, Cadastro → Importar backup → Mesclar.
+
 ## Estrutura
 
 ```
@@ -39,7 +55,8 @@ assets/
   marca/                logo, símbolo e favicon
 sistemas/
   _modelo.html          modelo de página com tela de login
-  compras/index.html    SR Compras
+  compras/index.html    SR Compras (sistema completo, dados no Supabase)
+  compras/xlsx.full.min.js  leitor de planilhas XLS/XLSX
   comercial/index.html  SR Comercial
   tarefas/index.html    SR Tarefas
   expedicao/index.html  SR Expedição
