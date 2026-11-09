@@ -133,7 +133,7 @@
                 <div class="cartoes">${cartoes}</div>
 
                 <footer class="rodape-inicio">
-                  <div>© ${new Date().getFullYear()} ${esc(CENTRAL.empresa)} Distribuidora · Araguari-MG</div>
+                  <div>© ${new Date().getFullYear()} ${esc(CENTRAL.empresa)} Distribuidora · Uberlândia-MG</div>
                   <div class="dicas">
                     <span><kbd>1</kbd>–<kbd>${SISTEMAS.length}</kbd> abre um sistema</span>
                     <span><kbd>${TECLA_ALT}</kbd>+<kbd>nº</kbd> troca de qualquer lugar</span>
